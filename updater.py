@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Callable, Optional, Tuple
 
 CURRENT_VERSION = "1.1.0"
-DEFAULT_GITHUB_REPO = "jdgurus/specialized-reporting"
+DEFAULT_GITHUB_REPO = "0784harshil/specializedreporting"
 MANIFEST_RAW_URL = "https://raw.githubusercontent.com/{repo}/main/version.json"
 RELEASE_API_URL = "https://api.github.com/repos/{repo}/releases/latest"
 
