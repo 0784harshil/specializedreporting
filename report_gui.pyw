@@ -1,23 +1,18 @@
 """Specialized Reporting — pcAmerica CRE (Professional Desktop Edition)
 
 A high-performance, enterprise-grade PySide6 desktop application for pcAmerica CRE POS:
-  - 100% Single-File Deployment (Only Specialized_Reporting.exe needed!)
-  - Self-Bootstrapping: Automatically generates config.env on first launch
+  - 100% Single-File Deployment (Only Specialized_Reporting.exe needed)
+  - Self-Bootstrapping: Clean, empty defaults for fresh merchant installations
+  - Fluid Responsive Layout with zero unnecessary scrollbars
+  - High-Contrast, Beautiful Vibrant Buttons (Full Visibility)
+  - Non-Intrusive Animated Toast Notification System
+  - Streamlined 5-Tab Navigation (Primary Focus: Report Generator & Live Preview)
   - Dual-Mode Engine: Interactive Studio GUI + Background Scheduled Runner (--scheduled)
-  - Branded Specialized Reporting Desktop Application
-  - JD Gurus Emblem Icon Integration
+  - Branded Specialized Reporting Desktop Application with JD Gurus Emblem Icon
   - Integrated GitHub Auto-Updater & Force-Update Engine (updater.py)
-  - 100% Native Zero-Console & Zero-Flicker Desktop UI
   - Cryptographic Salted SHA-256 Team Password Protection & Role-Based Access Control
-  - Configurable Automated Schedule Time (Default: 07:00 AM) with 1-Click Windows Task Scheduler Sync
-  - Dual Authentication: Windows Authentication (Trusted) & SQL Server Authentication (UID/PWD)
-  - SQL Server Auto-Discovery & Database Catalog Auto-Fetching
-  - Store Metadata & Latest Date Extraction from dbo.Setup / dbo.Invoice_Totals
-  - Modular Report Builder with dynamic section filtering (HTML, XLSX, CSV, SMS)
-  - Ultra-Fast Instant HTML Preview + 1-Click External Browser Launch
-  - Interactive Data Explorer for Transactions, TimeClock, Voids, Price Overrides, and Department Sales
+  - Automated Daily Schedule (07:00 AM) with 1-Click Windows Task Scheduler Sync
   - Asynchronous background QThread workers for 100% UI responsiveness
-  - Full bidirectional persistence with config.env / .env
 """
 
 from __future__ import annotations
@@ -40,13 +35,16 @@ from dotenv import load_dotenv
 from PySide6.QtCore import (
     QDate,
     QObject,
+    QPropertyAnimation,
+    QRect,
     QSize,
     QTime,
+    QTimer,
     Qt,
     QThread,
     Signal,
 )
-from PySide6.QtGui import QFont, QIcon, QPixmap
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -55,6 +53,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFrame,
+    QGraphicsOpacityEffect,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -64,11 +63,9 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMainWindow,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QRadioButton,
-    QScrollArea,
     QSplitter,
     QStackedWidget,
     QTabWidget,
@@ -105,21 +102,22 @@ ICO_PATH = BASE_DIR / "app_icon.ico"
 
 
 def load_app_env() -> dict[str, str]:
-    """Loads configuration, automatically creating config.env on first launch if missing."""
+    """Loads configuration. If missing on a fresh machine, initializes with clean empty credentials."""
     if not CONFIG_FILE.exists() and not DOTENV_FILE.exists():
+        # Fresh machine defaults — empty credentials for security
         default_cfg = {
-            "SQL_SERVER": r"Harshil\pcamerica",
-            "SQL_DATABASE": "cresqlvick",
-            "SQL_AUTH": "sql",
-            "SQL_USER": "sa",
-            "SQL_PASSWORD": "pcAmer1ca",
+            "SQL_SERVER": "",
+            "SQL_DATABASE": "",
+            "SQL_AUTH": "windows",
+            "SQL_USER": "",
+            "SQL_PASSWORD": "",
             "SMTP_HOST": "smtp.gmail.com",
             "SMTP_PORT": "587",
-            "SMTP_USER": "harshilp.job10@gmail.com",
-            "SMTP_PASSWORD": "ultb bstt ebjf adrr",
-            "SMTP_FROM": "Daily Reports <harshilp.job10@gmail.com>",
+            "SMTP_USER": "",
+            "SMTP_PASSWORD": "",
+            "SMTP_FROM": "",
             "SMTP_USE_TLS": "true",
-            "REPORT_RECIPIENT": "harshil@jdgurus.com",
+            "REPORT_RECIPIENT": "",
             "SMS_RECIPIENTS": "",
             "REPORT_DATE_MODE": "yesterday",
             "DRY_RUN": "false",
@@ -140,18 +138,18 @@ def load_app_env() -> dict[str, str]:
         load_dotenv(DOTENV_FILE, override=True)
     
     return {
-        "SQL_SERVER": os.getenv("SQL_SERVER", r"Harshil\pcamerica"),
-        "SQL_DATABASE": os.getenv("SQL_DATABASE", "cresqlvick"),
-        "SQL_AUTH": os.getenv("SQL_AUTH", "sql").lower(),
-        "SQL_USER": os.getenv("SQL_USER", "sa"),
-        "SQL_PASSWORD": os.getenv("SQL_PASSWORD", "pcAmer1ca"),
+        "SQL_SERVER": os.getenv("SQL_SERVER", ""),
+        "SQL_DATABASE": os.getenv("SQL_DATABASE", ""),
+        "SQL_AUTH": os.getenv("SQL_AUTH", "windows").lower(),
+        "SQL_USER": os.getenv("SQL_USER", ""),
+        "SQL_PASSWORD": os.getenv("SQL_PASSWORD", ""),
         "SMTP_HOST": os.getenv("SMTP_HOST", "smtp.gmail.com"),
         "SMTP_PORT": os.getenv("SMTP_PORT", "587"),
-        "SMTP_USER": os.getenv("SMTP_USER", "harshilp.job10@gmail.com"),
-        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD", "ultb bstt ebjf adrr"),
-        "SMTP_FROM": os.getenv("SMTP_FROM", "Daily Reports <harshilp.job10@gmail.com>"),
+        "SMTP_USER": os.getenv("SMTP_USER", ""),
+        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD", ""),
+        "SMTP_FROM": os.getenv("SMTP_FROM", ""),
         "SMTP_USE_TLS": os.getenv("SMTP_USE_TLS", "true"),
-        "REPORT_RECIPIENT": os.getenv("REPORT_RECIPIENT", "harshil@jdgurus.com"),
+        "REPORT_RECIPIENT": os.getenv("REPORT_RECIPIENT", ""),
         "SMS_RECIPIENTS": os.getenv("SMS_RECIPIENTS", ""),
         "REPORT_DATE_MODE": os.getenv("REPORT_DATE_MODE", "yesterday"),
         "DRY_RUN": os.getenv("DRY_RUN", "false"),
@@ -174,8 +172,8 @@ def save_app_env(cfg: dict[str, str]) -> None:
         "",
         "# --- SQL Server Connection ---",
         f"SQL_SERVER={cfg.get('SQL_SERVER', '')}",
-        f"SQL_DATABASE={cfg.get('SQL_DATABASE', 'cresqlvick')}",
-        f"SQL_AUTH={cfg.get('SQL_AUTH', 'sql')}",
+        f"SQL_DATABASE={cfg.get('SQL_DATABASE', '')}",
+        f"SQL_AUTH={cfg.get('SQL_AUTH', 'windows')}",
         f"SQL_USER={cfg.get('SQL_USER', '')}",
         f"SQL_PASSWORD={cfg.get('SQL_PASSWORD', '')}",
         "",
@@ -184,7 +182,7 @@ def save_app_env(cfg: dict[str, str]) -> None:
         f"SMTP_PORT={cfg.get('SMTP_PORT', '587')}",
         f"SMTP_USER={cfg.get('SMTP_USER', '')}",
         f"SMTP_PASSWORD={cfg.get('SMTP_PASSWORD', '')}",
-        f"SMTP_FROM={cfg.get('SMTP_FROM', 'Daily Reports <you@gmail.com>')}",
+        f"SMTP_FROM={cfg.get('SMTP_FROM', '')}",
         f"SMTP_USE_TLS={cfg.get('SMTP_USE_TLS', 'true')}",
         "",
         "# --- Recipients & Options ---",
@@ -209,6 +207,112 @@ def save_app_env(cfg: dict[str, str]) -> None:
     CONFIG_FILE.write_text(content, encoding="utf-8")
     DOTENV_FILE.write_text(content, encoding="utf-8")
     load_dotenv(CONFIG_FILE, override=True)
+
+
+# ---------------------------------------------------------------------------
+# Toast Notification Widget (Non-Intrusive, Modern Floating Alert)
+# ---------------------------------------------------------------------------
+
+class ToastNotification(QFrame):
+    def __init__(self, parent: QWidget, title: str, message: str, toast_type: str = "success", duration_ms: int = 3500):
+        super().__init__(parent)
+        self.duration_ms = duration_ms
+        
+        # Color Themes
+        if toast_type == "success":
+            bg_color = "#059669"
+            border_color = "#047857"
+            icon = "✅"
+        elif toast_type == "error":
+            bg_color = "#dc2626"
+            border_color = "#b91c1c"
+            icon = "❌"
+        elif toast_type == "warning":
+            bg_color = "#d97706"
+            border_color = "#b45309"
+            icon = "⚠️"
+        else: # info
+            bg_color = "#2563eb"
+            border_color = "#1d4ed8"
+            icon = "ℹ️"
+
+        self.setStyleSheet(f"""
+            QFrame {{
+                background-color: {bg_color};
+                border: 1px solid {border_color};
+                border-radius: 8px;
+                padding: 10px 14px;
+            }}
+            QLabel {{
+                color: #ffffff;
+                font-family: 'Segoe UI Variable Text', 'Segoe UI', sans-serif;
+            }}
+        """)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(10)
+
+        lbl_icon = QLabel(icon)
+        lbl_icon.setStyleSheet("font-size: 16px; background: transparent;")
+        layout.addWidget(lbl_icon)
+
+        v_text = QVBoxLayout()
+        v_text.setSpacing(2)
+        
+        lbl_title = QLabel(f"<b>{title}</b>")
+        lbl_title.setStyleSheet("font-size: 13px; font-weight: 700; color: #ffffff; background: transparent;")
+        v_text.addWidget(lbl_title)
+
+        if message:
+            lbl_msg = QLabel(message)
+            lbl_msg.setStyleSheet("font-size: 12px; color: #f1f5f9; background: transparent;")
+            lbl_msg.setWordWrap(True)
+            v_text.addWidget(lbl_msg)
+
+        layout.addLayout(v_text, stretch=1)
+
+        btn_close = QPushButton("✕")
+        btn_close.setFixedSize(22, 22)
+        btn_close.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: #ffffff;
+                font-weight: bold;
+                font-size: 12px;
+                border: none;
+                border-radius: 11px;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.2);
+            }
+        """)
+        btn_close.clicked.connect(self.close_toast)
+        layout.addWidget(btn_close)
+
+        self.setFixedWidth(380)
+        self.adjustSize()
+
+        # Position in top-right corner of parent window
+        self.update_position()
+
+        # Auto-dismiss timer
+        self.timer = QTimer(self)
+        self.timer.setSingleShot(True)
+        self.timer.timeout.connect(self.close_toast)
+        self.timer.start(self.duration_ms)
+
+    def update_position(self):
+        if self.parent():
+            p_geom = self.parent().rect()
+            x = p_geom.width() - self.width() - 24
+            y = 20
+            self.move(x, y)
+
+    def close_toast(self):
+        self.timer.stop()
+        self.hide()
+        self.deleteLater()
 
 
 # ---------------------------------------------------------------------------
@@ -267,6 +371,8 @@ class DbFetchWorker(QThread):
 
     def run(self):
         try:
+            if not self.server:
+                return
             self.log_msg.emit(f"Connecting to SQL Server: {self.server} (Auth: {self.auth})...")
             with report_db.open_connection(self.server, self.database, self.auth, self.user, self.pwd) as conn:
                 self.log_msg.emit("Fetching database catalog & merchant metadata from dbo.Setup...")
@@ -509,7 +615,7 @@ class TeamLoginDialog(QDialog):
             }
             QPushButton {
                 background-color: #2563eb;
-                color: white;
+                color: #ffffff !important;
                 font-weight: 600;
                 border-radius: 6px;
                 padding: 9px 18px;
@@ -542,7 +648,7 @@ class TeamLoginDialog(QDialog):
             self.btn_unlock = QPushButton("🔓 Unlock Studio")
             self.btn_unlock.clicked.connect(self.verify_and_accept)
             self.btn_cancel = QPushButton("Cancel")
-            self.btn_cancel.setStyleSheet("background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;")
+            self.btn_cancel.setStyleSheet("background-color: #f1f5f9; color: #475569 !important; border: 1px solid #cbd5e1;")
             self.btn_cancel.clicked.connect(self.reject)
 
             btn_box.addWidget(self.btn_unlock)
@@ -573,7 +679,7 @@ class TeamLoginDialog(QDialog):
             self.btn_change = QPushButton("💾 Update Password")
             self.btn_change.clicked.connect(self.change_password_and_accept)
             self.btn_cancel = QPushButton("Cancel")
-            self.btn_cancel.setStyleSheet("background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;")
+            self.btn_cancel.setStyleSheet("background-color: #f1f5f9; color: #475569 !important; border: 1px solid #cbd5e1;")
             self.btn_cancel.clicked.connect(self.reject)
 
             btn_box.addWidget(self.btn_change)
@@ -585,7 +691,9 @@ class TeamLoginDialog(QDialog):
         if auth_guard.verify_team_password(entered):
             self.accept()
         else:
-            QMessageBox.critical(self, "Access Denied", "❌ Incorrect team password. Please try again.")
+            if self.parent() and hasattr(self.parent(), "show_toast"):
+                self.parent().show_toast("Access Denied", "Incorrect team password.", "error")
+            self.reject()
 
     def change_password_and_accept(self):
         curr = self.txt_current.text().strip()
@@ -593,26 +701,28 @@ class TeamLoginDialog(QDialog):
         conf = self.txt_confirm.text().strip()
 
         if not auth_guard.verify_team_password(curr):
-            QMessageBox.critical(self, "Verification Failed", "❌ Current password is incorrect.")
+            if self.parent() and hasattr(self.parent(), "show_toast"):
+                self.parent().show_toast("Verification Failed", "Current password is incorrect.", "error")
             return
 
         if len(new_p) < 4:
-            QMessageBox.warning(self, "Invalid Password", "Password should be at least 4 characters.")
+            if self.parent() and hasattr(self.parent(), "show_toast"):
+                self.parent().show_toast("Invalid Password", "Password must be at least 4 characters.", "warning")
             return
 
         if new_p != conf:
-            QMessageBox.warning(self, "Mismatch", "New password and confirmation do not match.")
+            if self.parent() and hasattr(self.parent(), "show_toast"):
+                self.parent().show_toast("Mismatch", "New password and confirmation do not match.", "warning")
             return
 
         if auth_guard.change_team_password(new_p):
-            QMessageBox.information(self, "Password Updated", "✅ Team master password successfully updated!")
+            if self.parent() and hasattr(self.parent(), "show_toast"):
+                self.parent().show_toast("Password Updated", "Team master password successfully updated!", "success")
             self.accept()
-        else:
-            QMessageBox.critical(self, "Error", "Failed to update password.")
 
 
 # ---------------------------------------------------------------------------
-# Modern UI Theme Stylesheet
+# Modern High-Contrast Stylesheet (Zero Cut-Offs & Vivid Buttons)
 # ---------------------------------------------------------------------------
 
 MODERN_STYLESHEET = """
@@ -663,7 +773,7 @@ QGroupBox {
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     margin-top: 14px;
-    padding: 16px 14px 14px 14px;
+    padding: 14px 14px 12px 14px;
     font-weight: 700;
     font-size: 13px;
     color: #0f172a;
@@ -701,12 +811,12 @@ QLineEdit:disabled, QComboBox:disabled, QDateEdit:disabled, QTimeEdit:disabled {
 
 QPushButton {
     background-color: #2563eb;
-    color: #ffffff;
+    color: #ffffff !important;
     font-weight: 600;
     border: none;
     border-radius: 6px;
     padding: 8px 16px;
-    min-height: 20px;
+    min-height: 22px;
     font-size: 13px;
 }
 QPushButton:hover {
@@ -717,30 +827,32 @@ QPushButton:pressed {
 }
 QPushButton:disabled {
     background-color: #cbd5e1;
-    color: #94a3b8;
+    color: #94a3b8 !important;
 }
 
 QPushButton.btnSecondary {
     background-color: #f1f5f9;
-    color: #334155;
+    color: #1e293b !important;
     border: 1px solid #cbd5e1;
 }
 QPushButton.btnSecondary:hover {
     background-color: #e2e8f0;
-    color: #0f172a;
+    color: #0f172a !important;
 }
 
 QPushButton.btnSuccess {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #10b981, stop:1 #059669);
-    color: #ffffff;
+    background-color: #10b981;
+    color: #ffffff !important;
+    font-weight: 700;
 }
 QPushButton.btnSuccess:hover {
-    background-color: #047857;
+    background-color: #059669;
 }
 
 QPushButton.btnAccent {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #6366f1, stop:1 #4f46e5);
-    color: #ffffff;
+    background-color: #4f46e5;
+    color: #ffffff !important;
+    font-weight: 700;
 }
 QPushButton.btnAccent:hover {
     background-color: #4338ca;
@@ -793,7 +905,7 @@ QTabWidget::pane {
 QTabBar::tab {
     background-color: #f1f5f9;
     color: #64748b;
-    padding: 9px 18px;
+    padding: 8px 16px;
     border-top-left-radius: 6px;
     border-top-right-radius: 6px;
     margin-right: 4px;
@@ -830,8 +942,8 @@ class ProfessionalStudioWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle(f"Specialized Reporting v{updater.CURRENT_VERSION} — pcAmerica CRE")
-        self.resize(1340, 880)
-        self.setMinimumSize(1080, 720)
+        self.resize(1280, 820)
+        self.setMinimumSize(960, 640)
 
         if ICON_PATH.exists():
             self.setWindowIcon(QIcon(str(ICON_PATH)))
@@ -850,11 +962,20 @@ class ProfessionalStudioWindow(QMainWindow):
         self.setup_ui()
         self.load_settings_into_ui()
         self.apply_lock_state()
-        self.auto_connect_on_startup()
+
+        # Connect if SQL Server is configured
+        if self.cfg.get("SQL_SERVER"):
+            self.auto_connect_on_startup()
 
         # Check for remote updates quietly if enabled
         if self.cfg.get("AUTO_CHECK_UPDATES", "true").lower() in ("true", "1", "yes"):
             self.trigger_background_update_check(silent=True)
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        # Reposition any active toast notifications
+        for child in self.findChildren(ToastNotification):
+            child.update_position()
 
     def closeEvent(self, event):
         if hasattr(self, "fetch_worker") and self.fetch_worker.isRunning():
@@ -866,6 +987,11 @@ class ProfessionalStudioWindow(QMainWindow):
         if hasattr(self, "update_check_worker") and self.update_check_worker.isRunning():
             self.update_check_worker.terminate()
         event.accept()
+
+    def show_toast(self, title: str, message: str = "", toast_type: str = "success"):
+        """Displays a modern, non-intrusive floating toast notification."""
+        t = ToastNotification(self, title, message, toast_type)
+        t.show()
 
     def log(self, message: str, level: str = "INFO"):
         ts = _dt.datetime.now().strftime("%H:%M:%S")
@@ -880,7 +1006,8 @@ class ProfessionalStudioWindow(QMainWindow):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             self.is_admin_unlocked = True
             self.apply_lock_state()
-            self.log("IT / Support Team authenticated successfully. Full admin access unlocked.", "SUCCESS")
+            self.show_toast("Admin Mode Unlocked", "Full IT/Support settings editing unlocked.", "success")
+            self.log("IT / Support Team authenticated successfully.", "SUCCESS")
         else:
             self.is_admin_unlocked = False
             self.apply_lock_state()
@@ -889,6 +1016,7 @@ class ProfessionalStudioWindow(QMainWindow):
         if self.is_admin_unlocked:
             self.is_admin_unlocked = False
             self.apply_lock_state()
+            self.show_toast("Restricted Mode", "Admin settings locked for merchant safety.", "info")
             self.log("Admin privileges locked by user.", "INFO")
         else:
             self.prompt_team_login()
@@ -898,11 +1026,11 @@ class ProfessionalStudioWindow(QMainWindow):
         
         if unlocked:
             self.btn_lock_status.setText("🔓 Team Mode (Active)")
-            self.btn_lock_status.setStyleSheet("background-color: #10b981; color: white; font-weight: bold; padding: 6px 12px;")
+            self.btn_lock_status.setStyleSheet("background-color: #10b981; color: white !important; font-weight: bold; padding: 6px 14px; border-radius: 6px;")
             self.lbl_lock_banner.setVisible(False)
         else:
             self.btn_lock_status.setText("🔒 Restricted Mode (Click to Unlock)")
-            self.btn_lock_status.setStyleSheet("background-color: #ef4444; color: white; font-weight: bold; padding: 6px 12px;")
+            self.btn_lock_status.setStyleSheet("background-color: #ef4444; color: white !important; font-weight: bold; padding: 6px 14px; border-radius: 6px;")
             self.lbl_lock_banner.setVisible(True)
 
         self.combo_server.setEnabled(unlocked)
@@ -945,7 +1073,7 @@ class ProfessionalStudioWindow(QMainWindow):
         dlg.exec()
 
     # -----------------------------------------------------------------------
-    # Shell UI Layout & Navigation
+    # Shell UI Layout & Navigation (Clean 5 Tabs, Responsive)
     # -----------------------------------------------------------------------
     def setup_ui(self):
         central = QWidget()
@@ -957,27 +1085,25 @@ class ProfessionalStudioWindow(QMainWindow):
         # 1. Left Navigation Sidebar
         sidebar_frame = QFrame()
         sidebar_frame.setObjectName("sidebarFrame")
-        sidebar_frame.setFixedWidth(260)
+        sidebar_frame.setFixedWidth(250)
         side_vbox = QVBoxLayout(sidebar_frame)
         side_vbox.setContentsMargins(14, 18, 14, 16)
         side_vbox.setSpacing(12)
 
         brand_hbox = QHBoxLayout()
-        
-        # Branded JD Gurus Emblem Logo
         lbl_logo = QLabel()
         if ICON_PATH.exists():
-            pix = QPixmap(str(ICON_PATH)).scaled(38, 38, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            pix = QPixmap(str(ICON_PATH)).scaled(36, 36, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
             lbl_logo.setPixmap(pix)
         else:
             lbl_logo.setText("📊")
-            lbl_logo.setStyleSheet("font-size: 24px;")
+            lbl_logo.setStyleSheet("font-size: 22px;")
 
         brand_vbox = QVBoxLayout()
         lbl_app_name = QLabel("Specialized")
         lbl_app_name.setStyleSheet("color: #ffffff; font-size: 16px; font-weight: 800; letter-spacing: 0.5px;")
         lbl_app_sub = QLabel("Reporting System")
-        lbl_app_sub.setStyleSheet("color: #38bdf8; font-size: 13px; font-weight: 700;")
+        lbl_app_sub.setStyleSheet("color: #38bdf8; font-size: 12px; font-weight: 700;")
         brand_vbox.addWidget(lbl_app_name)
         brand_vbox.addWidget(lbl_app_sub)
         
@@ -995,16 +1121,15 @@ class ProfessionalStudioWindow(QMainWindow):
         self.nav_list.setObjectName("navSidebar")
         
         nav_items = [
-            ("📊  Live Analytics & KPIs", 0),
-            ("🚀  Report Generator & Preview", 1),
-            ("🧩  Module & Section Filter", 2),
-            ("🔌  SQL Server & Discovery", 3),
-            ("📧  Email & SMTP Dispatch", 4),
-            ("⚙️  Settings & Scheduling", 5),
+            ("🚀  Report Generator & Preview", 0),
+            ("🧩  Module & Section Filter", 1),
+            ("🔌  SQL Server & Discovery", 2),
+            ("📧  Email & SMTP Dispatch", 3),
+            ("⚙️  Settings & Scheduling", 4),
         ]
         for label, idx in nav_items:
             item = QListWidgetItem(label)
-            item.setSizeHint(QSize(230, 44))
+            item.setSizeHint(QSize(220, 44))
             self.nav_list.addItem(item)
 
         self.nav_list.currentRowChanged.connect(self.switch_view)
@@ -1016,9 +1141,9 @@ class ProfessionalStudioWindow(QMainWindow):
         sc_vbox = QVBoxLayout(status_card)
         sc_vbox.setSpacing(6)
         
-        self.lbl_side_db_chip = QLabel("🔴 SQL: Disconnected")
+        self.lbl_side_db_chip = QLabel("🔴 SQL: Not Configured")
         self.lbl_side_db_chip.setStyleSheet("color: #ef4444; font-weight: bold; font-size: 11px;")
-        self.lbl_side_store_chip = QLabel("🏪 Stores: Detecting...")
+        self.lbl_side_store_chip = QLabel("🏪 Stores: Ready")
         self.lbl_side_store_chip.setStyleSheet("color: #94a3b8; font-size: 11px;")
         self.lbl_side_ver_chip = QLabel(f"⚡ App Version: v{updater.CURRENT_VERSION}")
         self.lbl_side_ver_chip.setStyleSheet("color: #38bdf8; font-size: 10px; font-weight: 600;")
@@ -1029,7 +1154,7 @@ class ProfessionalStudioWindow(QMainWindow):
         side_vbox.addWidget(status_card)
 
         self.btn_save_top = QPushButton("💾 Save Config")
-        self.btn_save_top.setStyleSheet("background-color: #10b981; color: white; font-weight: bold;")
+        self.btn_save_top.setStyleSheet("background-color: #10b981; color: white !important; font-weight: bold; padding: 8px;")
         self.btn_save_top.clicked.connect(self.save_settings)
         side_vbox.addWidget(self.btn_save_top)
 
@@ -1039,16 +1164,17 @@ class ProfessionalStudioWindow(QMainWindow):
         content_widget = QWidget()
         content_widget.setObjectName("contentArea")
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setContentsMargins(20, 16, 20, 14)
-        content_layout.setSpacing(12)
+        content_layout.setContentsMargins(18, 14, 18, 12)
+        content_layout.setSpacing(10)
 
+        # Top Bar
         top_bar = QFrame()
-        top_bar.setStyleSheet("background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 6px 14px;")
+        top_bar.setStyleSheet("background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 12px;")
         top_layout = QHBoxLayout(top_bar)
-        top_layout.setContentsMargins(8, 6, 8, 6)
+        top_layout.setContentsMargins(6, 4, 6, 4)
 
-        self.lbl_page_title = QLabel("Live Analytics & KPIs")
-        self.lbl_page_title.setStyleSheet("font-size: 18px; font-weight: 800; color: #0f172a;")
+        self.lbl_page_title = QLabel("Report Generator & Live Preview")
+        self.lbl_page_title.setStyleSheet("font-size: 17px; font-weight: 800; color: #0f172a;")
         top_layout.addWidget(self.lbl_page_title)
 
         top_layout.addStretch()
@@ -1057,7 +1183,7 @@ class ProfessionalStudioWindow(QMainWindow):
         self.btn_lock_status.clicked.connect(self.toggle_lock_state)
         top_layout.addWidget(self.btn_lock_status)
 
-        self.lbl_header_db_badge = QLabel("Harshil\\pcamerica / cresqlvick")
+        self.lbl_header_db_badge = QLabel("Server: Ready")
         self.lbl_header_db_badge.setStyleSheet("background-color: #f1f5f9; color: #334155; padding: 5px 12px; border-radius: 6px; font-weight: 600; font-size: 12px;")
         top_layout.addWidget(self.lbl_header_db_badge)
 
@@ -1071,7 +1197,7 @@ class ProfessionalStudioWindow(QMainWindow):
         # Update Announcement Banner (Hidden by default)
         self.frame_update_banner = QFrame()
         self.frame_update_banner.setVisible(False)
-        self.frame_update_banner.setStyleSheet("background-color: #eff6ff; border: 1.5px solid #3b82f6; border-radius: 8px; padding: 8px 14px;")
+        self.frame_update_banner.setStyleSheet("background-color: #eff6ff; border: 1.5px solid #3b82f6; border-radius: 8px; padding: 6px 12px;")
         ub_layout = QHBoxLayout(self.frame_update_banner)
         ub_layout.setContentsMargins(4, 2, 4, 2)
         self.lbl_update_banner_text = QLabel("⭐ <b>A new software update is available!</b>")
@@ -1079,22 +1205,18 @@ class ProfessionalStudioWindow(QMainWindow):
         ub_layout.addWidget(self.lbl_update_banner_text)
         ub_layout.addStretch()
         self.btn_banner_update_now = QPushButton("⚡ Update Now")
-        self.btn_banner_update_now.setStyleSheet("background-color: #2563eb; color: white; font-weight: bold; padding: 4px 12px; font-size: 11px;")
+        self.btn_banner_update_now.setStyleSheet("background-color: #2563eb; color: white !important; font-weight: bold; padding: 4px 12px; font-size: 11px;")
         self.btn_banner_update_now.clicked.connect(self.execute_update_process)
         ub_layout.addWidget(self.btn_banner_update_now)
         content_layout.addWidget(self.frame_update_banner)
 
         self.lbl_lock_banner = QLabel("🔒 Restricted Merchant Mode: Settings and credentials are protected. Click 'Unlock' above to modify system configuration.")
-        self.lbl_lock_banner.setStyleSheet("background-color: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; border-radius: 6px; padding: 6px 12px; font-weight: 600; font-size: 12px;")
+        self.lbl_lock_banner.setStyleSheet("background-color: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; border-radius: 6px; padding: 5px 10px; font-weight: 600; font-size: 12px;")
         content_layout.addWidget(self.lbl_lock_banner)
 
         # Stacked Pages
         self.stack = QStackedWidget()
         content_layout.addWidget(self.stack, stretch=1)
-
-        self.view_dashboard = QWidget()
-        self.setup_dashboard_view()
-        self.stack.addWidget(self.view_dashboard)
 
         self.view_generator = QWidget()
         self.setup_generator_view()
@@ -1116,12 +1238,12 @@ class ProfessionalStudioWindow(QMainWindow):
         self.setup_settings_view()
         self.stack.addWidget(self.view_settings)
 
-        # Bottom Activity Console & Progress Bar
+        # Bottom Activity Console Drawer
         self.console_frame = QFrame()
         self.console_frame.setStyleSheet("background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px;")
         c_vbox = QVBoxLayout(self.console_frame)
-        c_vbox.setContentsMargins(10, 8, 10, 8)
-        c_vbox.setSpacing(6)
+        c_vbox.setContentsMargins(8, 6, 8, 6)
+        c_vbox.setSpacing(4)
 
         c_top = QHBoxLayout()
         lbl_c_title = QLabel("Activity & Event Log")
@@ -1138,7 +1260,7 @@ class ProfessionalStudioWindow(QMainWindow):
         c_vbox.addLayout(c_top)
 
         self.txt_log_console = QTextBrowser()
-        self.txt_log_console.setFixedHeight(70)
+        self.txt_log_console.setFixedHeight(60)
         self.txt_log_console.setVisible(False)
         self.txt_log_console.setStyleSheet("border: none; background-color: #f8fafc; font-family: 'Consolas', monospace; font-size: 11px; padding: 4px;")
         c_vbox.addWidget(self.txt_log_console)
@@ -1154,7 +1276,6 @@ class ProfessionalStudioWindow(QMainWindow):
 
     def switch_view(self, row: int):
         titles = [
-            "Live Analytics & Dashboard",
             "Report Generator & Live Preview",
             "Module & Section Filter",
             "SQL Server Connection & Auto-Discovery",
@@ -1171,82 +1292,19 @@ class ProfessionalStudioWindow(QMainWindow):
         self.btn_toggle_console.setText("Hide Log" if not is_visible else "Show Log")
 
     # -----------------------------------------------------------------------
-    # View 0: Live Analytics & Dashboard
-    # -----------------------------------------------------------------------
-    def setup_dashboard_view(self):
-        layout = QVBoxLayout(self.view_dashboard)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
-
-        kpi_frame = QFrame()
-        kpi_frame.setProperty("class", "cardFrame")
-        kpi_frame.setStyleSheet("background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px;")
-        k_layout = QHBoxLayout(kpi_frame)
-        k_layout.setSpacing(14)
-
-        def make_stat_card(title: str, default_val: str, icon: str, color_hex: str):
-            f = QFrame()
-            f.setStyleSheet(f"background-color: #f8fafc; border: 1px solid #e2e8f0; border-left: 4px solid {color_hex}; border-radius: 8px; padding: 10px;")
-            v = QVBoxLayout(f)
-            v.setContentsMargins(6, 4, 6, 4)
-            v.setSpacing(2)
-            lbl_t = QLabel(f"{icon} {title.upper()}")
-            lbl_t.setStyleSheet("font-size: 11px; color: #64748b; font-weight: 700;")
-            lbl_v = QLabel(default_val)
-            lbl_v.setStyleSheet(f"font-size: 20px; font-weight: 800; color: #0f172a;")
-            v.addWidget(lbl_t)
-            v.addWidget(lbl_v)
-            return f, lbl_v
-
-        f1, self.dash_invoices = make_stat_card("Total Invoices", "0", "🧾", "#2563eb")
-        f2, self.dash_gross = make_stat_card("Net Sales Revenue", "$0.00", "💵", "#10b981")
-        f3, self.dash_avg = make_stat_card("Average Ticket", "$0.00", "🎯", "#6366f1")
-        f4, self.dash_tax = make_stat_card("Sales Tax Collected", "$0.00", "🏛️", "#f59e0b")
-        f5, self.dash_cash = make_stat_card("Cash Collected", "$0.00", "💰", "#06b6d4")
-
-        k_layout.addWidget(f1)
-        k_layout.addWidget(f2)
-        k_layout.addWidget(f3)
-        k_layout.addWidget(f4)
-        k_layout.addWidget(f5)
-        layout.addWidget(kpi_frame)
-
-        split = QSplitter(Qt.Orientation.Horizontal)
-        
-        grp_items = QGroupBox("Top 10 Best-Selling Items")
-        v_it = QVBoxLayout(grp_items)
-        self.dash_table_items = QTableWidget(0, 4)
-        self.dash_table_items.setHorizontalHeaderLabels(["Rank", "Item Description", "Qty Sold", "Revenue ($)"])
-        self.dash_table_items.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.dash_table_items.setAlternatingRowColors(True)
-        v_it.addWidget(self.dash_table_items)
-        split.addWidget(grp_items)
-
-        grp_dept = QGroupBox("Department Revenue Breakdown")
-        v_dp = QVBoxLayout(grp_dept)
-        self.dash_table_dept = QTableWidget(0, 4)
-        self.dash_table_dept.setHorizontalHeaderLabels(["Dept ID", "Department Name", "Units", "Total Sales ($)"])
-        self.dash_table_dept.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        self.dash_table_dept.setAlternatingRowColors(True)
-        v_dp.addWidget(self.dash_table_dept)
-        split.addWidget(grp_dept)
-
-        layout.addWidget(split, stretch=1)
-
-    # -----------------------------------------------------------------------
-    # View 1: Report Generator & Live Preview
+    # View 0: Report Generator & Live Preview (High-Contrast Buttons)
     # -----------------------------------------------------------------------
     def setup_generator_view(self):
         layout = QVBoxLayout(self.view_generator)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setSpacing(8)
 
         ctrl_frame = QFrame()
         ctrl_frame.setProperty("class", "cardFrame")
-        ctrl_frame.setStyleSheet("background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px;")
+        ctrl_frame.setStyleSheet("background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px;")
         ctrl_layout = QHBoxLayout(ctrl_frame)
-        ctrl_layout.setContentsMargins(8, 4, 8, 4)
-        ctrl_layout.setSpacing(12)
+        ctrl_layout.setContentsMargins(6, 4, 6, 4)
+        ctrl_layout.setSpacing(10)
 
         ctrl_layout.addWidget(QLabel("<b>Store:</b>"))
         self.combo_run_store = QComboBox()
@@ -1273,13 +1331,40 @@ class ProfessionalStudioWindow(QMainWindow):
 
         ctrl_layout.addStretch()
 
-        self.btn_generate_preview = QPushButton("🚀 Generate Report")
-        self.btn_generate_preview.setProperty("class", "btnSuccess")
+        # High-Contrast Vibrant Buttons
+        self.btn_generate_preview = QPushButton("🚀  Generate Report")
+        self.btn_generate_preview.setStyleSheet("""
+            QPushButton {
+                background-color: #059669;
+                color: #ffffff !important;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 18px;
+                border-radius: 6px;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: #047857;
+            }
+        """)
         self.btn_generate_preview.clicked.connect(self.generate_and_preview_report)
         ctrl_layout.addWidget(self.btn_generate_preview)
 
-        self.btn_send_email_now = QPushButton("✉️ Dispatch Email")
-        self.btn_send_email_now.setProperty("class", "btnAccent")
+        self.btn_send_email_now = QPushButton("✉️  Dispatch Email")
+        self.btn_send_email_now.setStyleSheet("""
+            QPushButton {
+                background-color: #4f46e5;
+                color: #ffffff !important;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 18px;
+                border-radius: 6px;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: #4338ca;
+            }
+        """)
         self.btn_send_email_now.clicked.connect(self.send_email_now)
         ctrl_layout.addWidget(self.btn_send_email_now)
 
@@ -1290,10 +1375,10 @@ class ProfessionalStudioWindow(QMainWindow):
         # Tab 1: Instant Native HTML Document Browser
         tab_html = QWidget()
         th_vbox = QVBoxLayout(tab_html)
-        th_vbox.setContentsMargins(6, 6, 6, 6)
+        th_vbox.setContentsMargins(4, 4, 4, 4)
 
         th_toolbar = QHBoxLayout()
-        lbl_p_info = QLabel("<b>Instant Email Layout Preview</b> (Formatting & Tables)")
+        lbl_p_info = QLabel("<b>Instant Email Layout Preview</b> (Formatting, KPIs & Tables)")
         lbl_p_info.setStyleSheet("color: #475569; font-size: 12px;")
         th_toolbar.addWidget(lbl_p_info)
         th_toolbar.addStretch()
@@ -1305,7 +1390,7 @@ class ProfessionalStudioWindow(QMainWindow):
         th_vbox.addLayout(th_toolbar)
 
         self.preview_browser = QTextBrowser()
-        self.preview_browser.setStyleSheet("border: 1px solid #e2e8f0; border-radius: 6px; background-color: #ffffff; padding: 10px;")
+        self.preview_browser.setStyleSheet("border: 1px solid #e2e8f0; border-radius: 6px; background-color: #ffffff; padding: 8px;")
         self.preview_browser.setOpenExternalLinks(True)
         th_vbox.addWidget(self.preview_browser)
         self.preview_tabs.addTab(tab_html, "📄 Rendered HTML Email Layout")
@@ -1313,7 +1398,7 @@ class ProfessionalStudioWindow(QMainWindow):
         # Tab 2: Itemized Transactions Table
         tab_tx = QWidget()
         tx_vbox = QVBoxLayout(tab_tx)
-        tx_vbox.setContentsMargins(6, 6, 6, 6)
+        tx_vbox.setContentsMargins(4, 4, 4, 4)
         self.table_tx = QTableWidget(0, 8)
         self.table_tx.setHorizontalHeaderLabels(["Invoice #", "Timestamp", "Cashier", "Item Name", "Qty", "Price", "Ext Price", "Tax"])
         self.table_tx.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
@@ -1324,7 +1409,7 @@ class ProfessionalStudioWindow(QMainWindow):
         # Tab 3: Employee Time Clock
         tab_emp = QWidget()
         emp_vbox = QVBoxLayout(tab_emp)
-        emp_vbox.setContentsMargins(6, 6, 6, 6)
+        emp_vbox.setContentsMargins(4, 4, 4, 4)
         self.table_emp = QTableWidget(0, 6)
         self.table_emp.setHorizontalHeaderLabels(["Emp ID", "Employee Name", "Clock In", "Clock Out", "Total Hours", "Hourly Wage"])
         self.table_emp.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
@@ -1335,7 +1420,7 @@ class ProfessionalStudioWindow(QMainWindow):
         # Tab 4: Audit & Loss Prevention
         tab_audit = QWidget()
         aud_vbox = QVBoxLayout(tab_audit)
-        aud_vbox.setContentsMargins(6, 6, 6, 6)
+        aud_vbox.setContentsMargins(4, 4, 4, 4)
         self.table_audit = QTableWidget(0, 6)
         self.table_audit.setHorizontalHeaderLabels(["Event Type", "Invoice #", "Cashier", "Item / Details", "Old / Overridden", "Amount ($)"])
         self.table_audit.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
@@ -1349,7 +1434,7 @@ class ProfessionalStudioWindow(QMainWindow):
         if self.last_preview_html_path and Path(self.last_preview_html_path).exists():
             webbrowser.open(Path(self.last_preview_html_path).as_uri())
         else:
-            QMessageBox.information(self, "Notice", "Please generate a report first.")
+            self.show_toast("Notice", "Please click 'Generate Report' first.", "info")
 
     def on_date_preset_changed(self, index: int):
         preset = self.combo_date_preset.currentText()
@@ -1372,12 +1457,12 @@ class ProfessionalStudioWindow(QMainWindow):
                     self.dt_end.setDate(qd)
 
     # -----------------------------------------------------------------------
-    # View 2: Modular Filter & Sections
+    # View 1: Modular Filter & Sections (Responsive Grid Layout, No Outer Scrollbar)
     # -----------------------------------------------------------------------
     def setup_modules_view(self):
         layout = QVBoxLayout(self.view_modules)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
 
         top_hbox = QHBoxLayout()
         desc = QLabel("Customize exactly which modules appear in the generated HTML email, Excel workbook, and CSVs:")
@@ -1423,74 +1508,67 @@ class ProfessionalStudioWindow(QMainWindow):
         presets_hbox.addStretch()
         layout.addLayout(presets_hbox)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setStyleSheet("border: 1px solid #e2e8f0; border-radius: 10px; background-color: #ffffff;")
-        scroll_content = QWidget()
-        scroll_layout = QVBoxLayout(scroll_content)
-        scroll_layout.setContentsMargins(14, 14, 14, 14)
-        scroll_layout.setSpacing(12)
+        # 2-Column Responsive Grid of Module Cards
+        grid_modules = QGridLayout()
+        grid_modules.setSpacing(10)
 
         self.module_checkboxes: dict[str, QCheckBox] = {}
 
-        categories = {
-            "📊 Sales Performance & Analytics": [
-                ("kpis", "Key Metrics / KPIs", "Invoice count, Gross/Net Sales, Average Ticket, Taxed/Exempt, Sales Tax, Fixed Tax, Discounts, Cash."),
-                ("departments", "Sales by Department", "Departmental breakdown with item quantities, revenue, fixed taxes, and percentage of sales."),
-                ("fixed_tax", "Sales by Fixed Tax Bucket", "Sales grouped by Fixed Tax amount ($0.15, $0.30, etc.) with totals."),
-                ("top_items", "Top 20 Best Sellers", "Highest revenue generating items sold during the period."),
-                ("hourly", "Hourly Sales Curve", "Hourly sales distribution and invoice count throughout the trading day."),
-                ("payments", "Payment Method Breakdown", "Cash, Credit Card, Debit Card, Check, Gift Card, On Account, Mobile Pay."),
-            ],
-            "👥 Staff & Store Operations": [
-                ("employees", "Employee TimeClock & Shifts", "Staff shifts, clock-in/out timestamps, total hours worked, break times, and wages."),
-            ],
-            "🛡️ Loss Prevention & Security Audit": [
-                ("voids", "Invoice & Line Item Voids", "Voided transactions with cashier ID, timestamp, and voided amount."),
-                ("price_changes", "Price Overrides & Changes", "Manual item price overrides with cashier ID, original price, new price, and difference."),
-                ("deletes", "Line Item Deletions", "Line items deleted before completing the invoice with cashier ID and details."),
-            ],
-            "📄 Export Attachments & Detail Logs": [
-                ("transactions", "Itemized Transactions Detail", "Full itemized line-by-line transaction journal."),
-            ]
-        }
+        # 1. Sales Card
+        grp_sales = QGroupBox("📊 Sales Performance & Analytics")
+        v_sales = QVBoxLayout(grp_sales)
+        v_sales.setSpacing(6)
+        sales_items = [
+            ("kpis", "Key Metrics / KPIs", "Invoice count, Gross/Net Sales, Avg Ticket, Tax, Cash"),
+            ("departments", "Sales by Department", "Departmental item quantities, sales & fixed taxes"),
+            ("fixed_tax", "Fixed Tax Buckets", "Sales grouped by Fixed Tax amount ($0.15, $0.30)"),
+            ("top_items", "Top 20 Best Sellers", "Highest revenue generating items sold"),
+            ("hourly", "Hourly Sales Curve", "Hourly transaction volume and invoice count"),
+            ("payments", "Payment Breakdown", "Cash, Credit Card, Debit, Check, Gift Card"),
+        ]
+        for sec_key, title, d_text in sales_items:
+            cb = QCheckBox(f"<b>{title}</b> — <span style='color:#64748b;'>{d_text}</span>")
+            cb.setChecked(True)
+            self.module_checkboxes[sec_key] = cb
+            v_sales.addWidget(cb)
+        grid_modules.addWidget(grp_sales, 0, 0)
 
-        for cat_title, items in categories.items():
-            grp = QGroupBox(cat_title)
-            g_vbox = QVBoxLayout(grp)
-            g_vbox.setSpacing(8)
-            for sec_key, title, d_text in items:
-                row_hbox = QHBoxLayout()
-                cb = QCheckBox(f"{title}")
-                cb.setChecked(True)
-                self.module_checkboxes[sec_key] = cb
-                row_hbox.addWidget(cb)
-                
-                lbl_d = QLabel(f"— {d_text}")
-                lbl_d.setStyleSheet("color: #64748b; font-size: 12px;")
-                row_hbox.addWidget(lbl_d)
-                row_hbox.addStretch()
-                g_vbox.addLayout(row_hbox)
-            scroll_layout.addWidget(grp)
+        # 2. Staff & Audit Card
+        grp_ops = QGroupBox("👥 Staff & Loss Prevention Audit")
+        v_ops = QVBoxLayout(grp_ops)
+        v_ops.setSpacing(6)
+        ops_items = [
+            ("employees", "Employee TimeClock", "Staff shifts, clock-in/out timestamps, hours, wages"),
+            ("voids", "Transaction & Line Voids", "Voided invoices with cashier ID, timestamp, amount"),
+            ("price_changes", "Price Overrides", "Manual price changes with original price & difference"),
+            ("deletes", "Line Item Deletions", "Items deleted before invoice completion"),
+            ("transactions", "Itemized Detail CSV", "Full itemized line-by-line transaction journal"),
+        ]
+        for sec_key, title, d_text in ops_items:
+            cb = QCheckBox(f"<b>{title}</b> — <span style='color:#64748b;'>{d_text}</span>")
+            cb.setChecked(True)
+            self.module_checkboxes[sec_key] = cb
+            v_ops.addWidget(cb)
+        grid_modules.addWidget(grp_ops, 0, 1)
+
+        layout.addLayout(grid_modules)
 
         grp_attach = QGroupBox("📎 Attachment & Notification Delivery Options")
-        att_vbox = QVBoxLayout(grp_attach)
-        self.cb_attach_xlsx = QCheckBox("Include Styled Excel (.xlsx) Multi-Sheet Workbook Attachment")
+        att_hbox = QHBoxLayout(grp_attach)
+        self.cb_attach_xlsx = QCheckBox("Include Styled Excel (.xlsx) Multi-Sheet Workbook")
         self.cb_attach_xlsx.setChecked(True)
-        att_vbox.addWidget(self.cb_attach_xlsx)
+        att_hbox.addWidget(self.cb_attach_xlsx)
 
-        self.cb_attach_csv = QCheckBox("Include Raw CSV Detail Files (Transactions, Employees, Audit Events)")
+        self.cb_attach_csv = QCheckBox("Include Raw CSV Detail Files (Transactions & Shifts)")
         self.cb_attach_csv.setChecked(True)
-        att_vbox.addWidget(self.cb_attach_csv)
+        att_hbox.addWidget(self.cb_attach_csv)
 
-        self.cb_send_sms = QCheckBox("Send Mobile Text Summary via Email-to-SMS Gateways")
+        self.cb_send_sms = QCheckBox("Send Mobile Text Summary via SMS Gateways")
         self.cb_send_sms.setChecked(False)
-        att_vbox.addWidget(self.cb_send_sms)
+        att_hbox.addWidget(self.cb_send_sms)
 
-        scroll_layout.addWidget(grp_attach)
-
-        scroll.setWidget(scroll_content)
-        layout.addWidget(scroll, stretch=1)
+        layout.addWidget(grp_attach)
+        layout.addStretch()
 
     def select_all_modules(self):
         for cb in self.module_checkboxes.values():
@@ -1509,22 +1587,22 @@ class ProfessionalStudioWindow(QMainWindow):
         return {k for k, cb in self.module_checkboxes.items() if cb.isChecked()}
 
     # -----------------------------------------------------------------------
-    # View 3: SQL Server Connection & Discovery
+    # View 2: SQL Server Connection & Discovery
     # -----------------------------------------------------------------------
     def setup_sql_view(self):
         layout = QVBoxLayout(self.view_sql)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setSpacing(12)
 
         grp_conn = QGroupBox("SQL Server Database Connection")
         g_layout = QGridLayout(grp_conn)
-        g_layout.setSpacing(12)
-        g_layout.setContentsMargins(16, 18, 16, 16)
+        g_layout.setSpacing(10)
+        g_layout.setContentsMargins(14, 16, 14, 14)
 
         g_layout.addWidget(QLabel("SQL Server Instance:"), 0, 0)
         self.combo_server = QComboBox()
         self.combo_server.setEditable(True)
-        self.combo_server.addItems([r"Harshil\pcamerica", r"localhost\pcamerica", r"localhost\SQLEXPRESS", "localhost"])
+        self.combo_server.setPlaceholderText("e.g. .\\pcamerica or localhost\\pcamerica")
         g_layout.addWidget(self.combo_server, 0, 1)
 
         self.btn_discover_servers = QPushButton("🔍 Discover Instances")
@@ -1535,7 +1613,7 @@ class ProfessionalStudioWindow(QMainWindow):
         g_layout.addWidget(QLabel("Database Name:"), 1, 0)
         self.combo_database = QComboBox()
         self.combo_database.setEditable(True)
-        self.combo_database.addItems(["cresqlvick", "cresql", "pcamerica"])
+        self.combo_database.setPlaceholderText("e.g. cresqlvick")
         g_layout.addWidget(self.combo_database, 1, 1)
 
         self.btn_list_dbs = QPushButton("📋 Fetch Databases")
@@ -1546,8 +1624,8 @@ class ProfessionalStudioWindow(QMainWindow):
         g_layout.addWidget(QLabel("Authentication Mode:"), 2, 0)
         auth_hbox = QHBoxLayout()
         self.radio_auth_win = QRadioButton("🪟 Windows Authentication (Trusted Connection)")
-        self.radio_auth_sql = QRadioButton("🔑 SQL Server Authentication (Username & Password)")
-        self.radio_auth_sql.setChecked(True)
+        self.radio_auth_sql = QRadioButton("🔑 SQL Server Authentication (sa / password)")
+        self.radio_auth_win.setChecked(True)
         self.radio_auth_win.toggled.connect(self.toggle_auth_fields)
         auth_hbox.addWidget(self.radio_auth_win)
         auth_hbox.addWidget(self.radio_auth_sql)
@@ -1555,13 +1633,14 @@ class ProfessionalStudioWindow(QMainWindow):
         g_layout.addLayout(auth_hbox, 2, 1, 1, 2)
 
         self.lbl_user = QLabel("SQL Username:")
-        self.txt_user = QLineEdit("sa")
+        self.txt_user = QLineEdit()
+        self.txt_user.setPlaceholderText("sa")
         g_layout.addWidget(self.lbl_user, 3, 0)
         g_layout.addWidget(self.txt_user, 3, 1)
 
         self.lbl_pwd = QLabel("SQL Password:")
         pwd_hbox = QHBoxLayout()
-        self.txt_pwd = QLineEdit("pcAmer1ca")
+        self.txt_pwd = QLineEdit()
         self.txt_pwd.setEchoMode(QLineEdit.EchoMode.Password)
         self.btn_toggle_pwd = QPushButton("👁️")
         self.btn_toggle_pwd.setProperty("class", "btnSecondary")
@@ -1590,7 +1669,7 @@ class ProfessionalStudioWindow(QMainWindow):
 
         grp_details = QGroupBox("Discovered Merchants & Stores in dbo.Setup")
         det_layout = QVBoxLayout(grp_details)
-        det_layout.setContentsMargins(14, 16, 14, 14)
+        det_layout.setContentsMargins(12, 14, 12, 12)
 
         self.table_stores = QTableWidget(0, 5)
         self.table_stores.setHorizontalHeaderLabels(["Store ID", "Store Name / Merchant", "Address", "Phone", "Email"])
@@ -1628,17 +1707,17 @@ class ProfessionalStudioWindow(QMainWindow):
             btn.setText("👁️")
 
     # -----------------------------------------------------------------------
-    # View 4: Email & SMTP Dispatch
+    # View 3: Email & SMTP Dispatch
     # -----------------------------------------------------------------------
     def setup_email_view(self):
         layout = QVBoxLayout(self.view_email)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setSpacing(12)
 
         grp_smtp = QGroupBox("SMTP Outgoing Mail Server Configuration")
         s_layout = QGridLayout(grp_smtp)
-        s_layout.setSpacing(12)
-        s_layout.setContentsMargins(16, 18, 16, 16)
+        s_layout.setSpacing(10)
+        s_layout.setContentsMargins(14, 16, 14, 14)
 
         s_layout.addWidget(QLabel("SMTP Host:"), 0, 0)
         self.txt_smtp_host = QLineEdit("smtp.gmail.com")
@@ -1650,13 +1729,15 @@ class ProfessionalStudioWindow(QMainWindow):
         s_layout.addWidget(self.txt_smtp_port, 0, 3)
 
         s_layout.addWidget(QLabel("SMTP Username / Email:"), 1, 0)
-        self.txt_smtp_user = QLineEdit("harshilp.job10@gmail.com")
+        self.txt_smtp_user = QLineEdit()
+        self.txt_smtp_user.setPlaceholderText("your.email@gmail.com")
         s_layout.addWidget(self.txt_smtp_user, 1, 1, 1, 3)
 
         s_layout.addWidget(QLabel("Google App Password:"), 2, 0)
         pwd_box = QHBoxLayout()
-        self.txt_smtp_pwd = QLineEdit("ultb bstt ebjf adrr")
+        self.txt_smtp_pwd = QLineEdit()
         self.txt_smtp_pwd.setEchoMode(QLineEdit.EchoMode.Password)
+        self.txt_smtp_pwd.setPlaceholderText("16-character Google App Password")
         self.btn_toggle_smtp_pwd = QPushButton("👁️")
         self.btn_toggle_smtp_pwd.setProperty("class", "btnSecondary")
         self.btn_toggle_smtp_pwd.setFixedWidth(36)
@@ -1666,7 +1747,8 @@ class ProfessionalStudioWindow(QMainWindow):
         s_layout.addLayout(pwd_box, 2, 1, 1, 3)
 
         s_layout.addWidget(QLabel("From Header:"), 3, 0)
-        self.txt_smtp_from = QLineEdit("Daily Reports <harshilp.job10@gmail.com>")
+        self.txt_smtp_from = QLineEdit()
+        self.txt_smtp_from.setPlaceholderText("Daily Reports <your.email@gmail.com>")
         s_layout.addWidget(self.txt_smtp_from, 3, 1, 1, 3)
 
         self.cb_smtp_tls = QCheckBox("Enable STARTTLS (Required for Gmail port 587)")
@@ -1677,15 +1759,17 @@ class ProfessionalStudioWindow(QMainWindow):
 
         grp_recip = QGroupBox("Report Delivery & Recipients")
         r_layout = QGridLayout(grp_recip)
-        r_layout.setSpacing(12)
-        r_layout.setContentsMargins(16, 18, 16, 16)
+        r_layout.setSpacing(10)
+        r_layout.setContentsMargins(14, 16, 14, 14)
 
         r_layout.addWidget(QLabel("Report Recipients (comma-separated):"), 0, 0)
-        self.txt_recipients = QLineEdit("harshil@jdgurus.com")
+        self.txt_recipients = QLineEdit()
+        self.txt_recipients.setPlaceholderText("storeowner@example.com, accountant@example.com")
         r_layout.addWidget(self.txt_recipients, 0, 1)
 
         r_layout.addWidget(QLabel("SMS Gateway Recipients (optional):"), 1, 0)
         self.txt_sms_recipients = QLineEdit()
+        self.txt_sms_recipients.setPlaceholderText("5551234567@vtext.com (optional)")
         r_layout.addWidget(self.txt_sms_recipients, 1, 1)
 
         self.cb_dry_run = QCheckBox("🛡️ Dry-Run Mode (Generate and save files locally, do NOT transmit real emails)")
@@ -1703,18 +1787,18 @@ class ProfessionalStudioWindow(QMainWindow):
         layout.addStretch()
 
     # -----------------------------------------------------------------------
-    # View 5: Settings & Automated Scheduling
+    # View 4: Settings & Automated Scheduling
     # -----------------------------------------------------------------------
     def setup_settings_view(self):
         layout = QVBoxLayout(self.view_settings)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(14)
+        layout.setSpacing(12)
 
-        # 1. GitHub Remote Updates & Auto-Updater Box
+        # 1. GitHub Remote Updates Box
         grp_updates = QGroupBox("🔄 GitHub Remote Updates & Auto-Updater")
         u_layout = QGridLayout(grp_updates)
-        u_layout.setSpacing(12)
-        u_layout.setContentsMargins(16, 18, 16, 16)
+        u_layout.setSpacing(10)
+        u_layout.setContentsMargins(14, 16, 14, 14)
 
         u_layout.addWidget(QLabel("Installed Version:"), 0, 0)
         lbl_v_chip = QLabel(f"<b>Specialized Reporting v{updater.CURRENT_VERSION}</b>")
@@ -1734,7 +1818,7 @@ class ProfessionalStudioWindow(QMainWindow):
         self.cb_auto_check_updates.setChecked(True)
         u_layout.addWidget(self.cb_auto_check_updates, 1, 2)
 
-        lbl_up_info = QLabel("Updates automatically replace the executable and modules without overwriting your database connection or settings.")
+        lbl_up_info = QLabel("Updates automatically replace the executable without overwriting your local database connection or settings.")
         lbl_up_info.setStyleSheet("color: #64748b; font-size: 12px;")
         u_layout.addWidget(lbl_up_info, 2, 0, 1, 3)
 
@@ -1743,8 +1827,8 @@ class ProfessionalStudioWindow(QMainWindow):
         # 2. Automated Schedule Box
         grp_sched = QGroupBox("⏰ Automated Daily Report Scheduling")
         sc_layout = QGridLayout(grp_sched)
-        sc_layout.setSpacing(12)
-        sc_layout.setContentsMargins(16, 18, 16, 16)
+        sc_layout.setSpacing(10)
+        sc_layout.setContentsMargins(14, 16, 14, 14)
 
         sc_layout.addWidget(QLabel("Daily Dispatch Time:"), 0, 0)
         self.time_schedule = QTimeEdit()
@@ -1756,7 +1840,7 @@ class ProfessionalStudioWindow(QMainWindow):
         self.cb_schedule_enabled.setChecked(True)
         sc_layout.addWidget(self.cb_schedule_enabled, 0, 2)
 
-        lbl_sc_info = QLabel("Configure the exact daily time when automated sales reports are processed and emailed:")
+        lbl_sc_info = QLabel("Configure the daily morning time when automated sales reports are processed and emailed:")
         lbl_sc_info.setStyleSheet("color: #64748b; font-size: 12px;")
         sc_layout.addWidget(lbl_sc_info, 1, 0, 1, 3)
 
@@ -1778,8 +1862,8 @@ class ProfessionalStudioWindow(QMainWindow):
         # 3. Security Box
         grp_auth = QGroupBox("🔐 Team Master Password & Security Gate")
         a_layout = QVBoxLayout(grp_auth)
-        a_layout.setSpacing(10)
-        a_layout.setContentsMargins(16, 18, 16, 16)
+        a_layout.setSpacing(8)
+        a_layout.setContentsMargins(14, 16, 14, 14)
 
         lbl_auth_desc = QLabel(
             "Protect SQL credentials, SMTP passwords, and report recipient settings with cryptographic salted hashing. "
@@ -1798,8 +1882,8 @@ class ProfessionalStudioWindow(QMainWindow):
         # 4. Storage Box
         grp_dirs = QGroupBox("Directories & Storage")
         d_layout = QGridLayout(grp_dirs)
-        d_layout.setSpacing(12)
-        d_layout.setContentsMargins(16, 18, 16, 16)
+        d_layout.setSpacing(10)
+        d_layout.setContentsMargins(14, 16, 14, 14)
 
         d_layout.addWidget(QLabel("Reports Output Directory:"), 0, 0)
         self.txt_output_dir = QLineEdit(str(OUTPUT_ROOT))
@@ -1837,46 +1921,25 @@ class ProfessionalStudioWindow(QMainWindow):
         if info.available:
             self.lbl_update_banner_text.setText(f"⭐ <b>New Update Available: v{info.latest_version}</b> — {info.changelog}")
             self.frame_update_banner.setVisible(True)
+            self.show_toast("Update Available", f"Version v{info.latest_version} is available!", "info")
             self.log(f"Update available: v{info.latest_version} (Current: v{updater.CURRENT_VERSION})", "WARN")
 
             if info.is_forced:
-                # Mandatory Force Update Workflow
-                box = QMessageBox(self)
-                box.setWindowTitle("🚨 Mandatory Software Update Required")
-                box.setIcon(QMessageBox.Icon.Warning)
-                box.setText(f"<h3>Specialized Reporting v{info.latest_version} is required</h3>"
-                            f"<p>A critical update has been published by JD Gurus that must be installed before continuing.</p>"
-                            f"<p><b>Changelog:</b> {info.changelog}</p>")
-                btn_up = box.addButton("⚡ Update & Restart Now", QMessageBox.ButtonRole.AcceptRole)
-                box.exec()
+                self.show_toast("Mandatory Update", f"Installing required version v{info.latest_version}...", "warning")
                 self.execute_update_process()
-            elif not getattr(self, "update_check_silent", True):
-                res = QMessageBox.question(
-                    self,
-                    "Update Available",
-                    f"A new version (v{info.latest_version}) is available!\n\n"
-                    f"Current Version: v{updater.CURRENT_VERSION}\n"
-                    f"Release Date: {info.release_date or 'Recent'}\n\n"
-                    f"Changelog:\n{info.changelog}\n\n"
-                    f"Would you like to download and install this update now?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                )
-                if res == QMessageBox.StandardButton.Yes:
-                    self.execute_update_process()
         else:
             self.frame_update_banner.setVisible(False)
             if not getattr(self, "update_check_silent", True):
-                QMessageBox.information(self, "Up to Date", f"✅ Specialized Reporting is up to date (v{updater.CURRENT_VERSION}).")
+                self.show_toast("Up to Date", f"Specialized Reporting is up to date (v{updater.CURRENT_VERSION}).", "success")
 
     def on_update_check_error(self, err: str):
         self.progress_bar.setVisible(False)
         if not getattr(self, "update_check_silent", True):
-            self.log(f"Update check notice: {err}", "WARN")
-            QMessageBox.warning(self, "Update Check Error", f"Could not check for updates:\n{err}")
+            self.show_toast("Update Check Notice", str(err), "warning")
 
     def execute_update_process(self):
         if not self.pending_update_info or not self.pending_update_info.download_url:
-            QMessageBox.warning(self, "Update Error", "No valid update download URL found.")
+            self.show_toast("Update Error", "No valid update download URL found.", "error")
             return
 
         info = self.pending_update_info
@@ -1885,6 +1948,7 @@ class ProfessionalStudioWindow(QMainWindow):
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 100)
         self.progress_bar.setValue(0)
+        self.show_toast("Downloading Update", f"Downloading v{info.latest_version}...", "info")
         self.log(f"Downloading v{info.latest_version} from {info.download_url}...", "INFO")
 
         self.update_download_worker = UpdateDownloadWorker(info.download_url, target_path)
@@ -1903,30 +1967,20 @@ class ProfessionalStudioWindow(QMainWindow):
 
     def on_download_complete(self, target_path_str: str):
         self.progress_bar.setVisible(False)
+        self.show_toast("Update Ready", "Restarting application to apply update...", "success")
         self.log("Download complete! Applying update and restarting...", "SUCCESS")
         
-        QMessageBox.information(
-            self,
-            "Restarting for Update",
-            "✅ Software update downloaded successfully!\n\n"
-            "The application will now restart automatically to apply the new version.\n"
-            "Your database connection and credentials will remain completely preserved.",
-        )
-        try:
-            updater.apply_update_and_restart(BASE_DIR, "Specialized_Reporting.exe")
-        except Exception as e:
-            QMessageBox.critical(self, "Update Error", f"Failed applying update:\n{e}")
+        QTimer.singleShot(1000, lambda: updater.apply_update_and_restart(BASE_DIR, "Specialized_Reporting.exe"))
 
     def on_download_error(self, err: str):
         self.progress_bar.setVisible(False)
+        self.show_toast("Download Failed", str(err), "error")
         self.log(f"Download failed: {err}", "ERROR")
-        QMessageBox.critical(self, "Download Error", f"❌ Failed downloading software update:\n\n{err}")
 
     def register_windows_task(self):
         time_str = self.time_schedule.time().toString("HH:mm")
         exe_path = Path(sys.executable).resolve() if getattr(sys, "frozen", False) else (BASE_DIR / "Specialized_Reporting.exe")
 
-        # Windows Task Scheduler calls Specialized_Reporting.exe with --scheduled flag
         cmd = [
             "schtasks", "/create",
             "/tn", "pcAmerica_Daily_Sales_Report",
@@ -1938,22 +1992,21 @@ class ProfessionalStudioWindow(QMainWindow):
         try:
             res = subprocess.run(cmd, capture_output=True, text=True)
             if res.returncode == 0:
-                self.log(f"Windows Task Scheduler configured for {self.time_schedule.time().toString('hh:mm AP')} using Specialized_Reporting.exe.", "SUCCESS")
-                QMessageBox.information(self, "Scheduler Registered", f"✅ Successfully registered Windows Task Scheduler to run daily at {self.time_schedule.time().toString('hh:mm AP')} via Specialized_Reporting.exe!")
+                self.show_toast("Task Registered", f"Reports scheduled daily at {self.time_schedule.time().toString('hh:mm AP')}!", "success")
+                self.log(f"Windows Task Scheduler configured for {self.time_schedule.time().toString('hh:mm AP')}.", "SUCCESS")
             else:
-                self.log(f"Scheduler registration notice: {res.stderr.strip()}", "WARN")
-                QMessageBox.warning(self, "Scheduler Notice", f"Result:\n{res.stdout or res.stderr}")
+                self.show_toast("Task Notice", res.stderr.strip() or res.stdout.strip(), "warning")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed executing schtasks:\n{e}")
+            self.show_toast("Scheduler Error", str(e), "error")
 
     def remove_windows_task(self):
         cmd = ["schtasks", "/delete", "/tn", "pcAmerica_Daily_Sales_Report", "/f"]
         try:
             res = subprocess.run(cmd, capture_output=True, text=True)
+            self.show_toast("Task Removed", "Windows scheduled daily report task removed.", "info")
             self.log("Removed pcAmerica scheduled task.", "INFO")
-            QMessageBox.information(self, "Task Removed", "Windows scheduled task removed.")
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed removing task:\n{e}")
+            self.show_toast("Error", str(e), "error")
 
     def browse_output_dir(self):
         d = QFileDialog.getExistingDirectory(self, "Select Output Directory", str(OUTPUT_ROOT))
@@ -1973,31 +2026,31 @@ class ProfessionalStudioWindow(QMainWindow):
         else:
             self.combo_server.setEditText(srv)
 
-        db = cfg.get("SQL_DATABASE", "cresqlvick")
+        db = cfg.get("SQL_DATABASE", "")
         idx_db = self.combo_database.findText(db)
         if idx_db >= 0:
             self.combo_database.setCurrentIndex(idx_db)
         else:
             self.combo_database.setEditText(db)
 
-        auth = cfg.get("SQL_AUTH", "sql").lower()
+        auth = cfg.get("SQL_AUTH", "windows").lower()
         if auth in ("sql", "sql server", "sql server authentication"):
             self.radio_auth_sql.setChecked(True)
         else:
             self.radio_auth_win.setChecked(True)
         self.toggle_auth_fields()
 
-        self.txt_user.setText(cfg.get("SQL_USER", "sa"))
-        self.txt_pwd.setText(cfg.get("SQL_PASSWORD", "pcAmer1ca"))
+        self.txt_user.setText(cfg.get("SQL_USER", ""))
+        self.txt_pwd.setText(cfg.get("SQL_PASSWORD", ""))
 
         self.txt_smtp_host.setText(cfg.get("SMTP_HOST", "smtp.gmail.com"))
         self.txt_smtp_port.setText(cfg.get("SMTP_PORT", "587"))
-        self.txt_smtp_user.setText(cfg.get("SMTP_USER", "harshilp.job10@gmail.com"))
-        self.txt_smtp_pwd.setText(cfg.get("SMTP_PASSWORD", "ultb bstt ebjf adrr"))
-        self.txt_smtp_from.setText(cfg.get("SMTP_FROM", "Daily Reports <harshilp.job10@gmail.com>"))
+        self.txt_smtp_user.setText(cfg.get("SMTP_USER", ""))
+        self.txt_smtp_pwd.setText(cfg.get("SMTP_PASSWORD", ""))
+        self.txt_smtp_from.setText(cfg.get("SMTP_FROM", ""))
         self.cb_smtp_tls.setChecked(cfg.get("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes"))
 
-        self.txt_recipients.setText(cfg.get("REPORT_RECIPIENT", "harshil@jdgurus.com"))
+        self.txt_recipients.setText(cfg.get("REPORT_RECIPIENT", ""))
         self.txt_sms_recipients.setText(cfg.get("SMS_RECIPIENTS", ""))
         self.cb_dry_run.setChecked(cfg.get("DRY_RUN", "false").lower() in ("true", "1", "yes"))
 
@@ -2022,6 +2075,9 @@ class ProfessionalStudioWindow(QMainWindow):
 
         self.txt_github_repo.setText(cfg.get("GITHUB_REPO", "0784harshil/specializedreporting"))
         self.cb_auto_check_updates.setChecked(cfg.get("AUTO_CHECK_UPDATES", "true").lower() in ("true", "1", "yes"))
+
+        if srv and db:
+            self.lbl_header_db_badge.setText(f"{srv} / {db}")
 
     def collect_ui_settings(self) -> dict[str, str]:
         return {
@@ -2051,18 +2107,22 @@ class ProfessionalStudioWindow(QMainWindow):
 
     def save_settings(self):
         if not self.is_admin_unlocked:
-            QMessageBox.warning(self, "Access Denied", "Please unlock Team Admin Mode to save configuration changes.")
+            self.show_toast("Access Denied", "Please unlock Team Admin Mode to save configuration.", "warning")
             return
 
         try:
             cfg = self.collect_ui_settings()
             save_app_env(cfg)
             self.cfg = cfg
-            self.log("Configuration successfully synchronized and saved to config.env and .env.", "SUCCESS")
-            QMessageBox.information(self, "Configuration Saved", "✅ Settings successfully saved to config.env and .env!")
+            srv = cfg.get("SQL_SERVER", "")
+            db = cfg.get("SQL_DATABASE", "")
+            if srv and db:
+                self.lbl_header_db_badge.setText(f"{srv} / {db}")
+            self.show_toast("Configuration Saved", "Settings synchronized to config.env successfully!", "success")
+            self.log("Configuration saved to config.env.", "SUCCESS")
         except Exception as e:
+            self.show_toast("Save Error", str(e), "error")
             self.log(f"Failed saving configuration: {e}", "ERROR")
-            QMessageBox.critical(self, "Save Error", f"❌ Failed to save configuration:\n{e}")
 
     # -----------------------------------------------------------------------
     # Database Actions
@@ -2075,11 +2135,14 @@ class ProfessionalStudioWindow(QMainWindow):
         self.combo_server.addItems(instances)
         if current in instances:
             self.combo_server.setCurrentText(current)
+        self.show_toast("Discovery Complete", f"Found {len(instances)} SQL Server instance(s).", "info")
         self.log(f"Discovered {len(instances)} instance(s): {', '.join(instances)}", "SUCCESS")
-        QMessageBox.information(self, "Discovery Complete", f"Found {len(instances)} SQL Server instance(s) on this machine.")
 
     def fetch_databases_list(self):
         server = self.combo_server.currentText().strip()
+        if not server:
+            self.show_toast("Instance Required", "Please enter or select a SQL Server Instance.", "warning")
+            return
         auth = "sql" if self.radio_auth_sql.isChecked() else "windows"
         user = self.txt_user.text().strip()
         pwd = self.txt_pwd.text().strip()
@@ -2092,15 +2155,18 @@ class ProfessionalStudioWindow(QMainWindow):
                 self.combo_database.addItems(dbs)
                 if "cresqlvick" in dbs:
                     self.combo_database.setCurrentText("cresqlvick")
+                self.show_toast("Databases Fetched", f"Found {len(dbs)} database(s) on server.", "success")
                 self.log(f"Catalog fetched: {len(dbs)} database(s) found.", "SUCCESS")
-                QMessageBox.information(self, "Databases Fetched", f"Found {len(dbs)} database(s) on server {server}.")
         except Exception as e:
+            self.show_toast("Database Fetch Error", str(e), "error")
             self.log(f"Failed fetching databases: {e}", "ERROR")
-            QMessageBox.warning(self, "Database Fetch Error", f"Could not list databases:\n{e}")
 
     def test_db_connection(self):
         server = self.combo_server.currentText().strip()
         database = self.combo_database.currentText().strip()
+        if not server or not database:
+            self.show_toast("Parameters Missing", "Please enter both SQL Server Instance and Database Name.", "warning")
+            return
         auth = "sql" if self.radio_auth_sql.isChecked() else "windows"
         user = self.txt_user.text().strip()
         pwd = self.txt_pwd.text().strip()
@@ -2108,20 +2174,22 @@ class ProfessionalStudioWindow(QMainWindow):
         self.log(f"Testing connection to {server}/{database} ({auth})...")
         ok, msg = report_db.test_connection(server, database, auth, user, pwd)
         if ok:
-            self.lbl_side_db_chip.setText(f"🟢 SQL: {server}")
+            self.lbl_side_db_chip.setText(f"🟢 SQL: Connected")
             self.lbl_side_db_chip.setStyleSheet("color: #10b981; font-weight: bold; font-size: 11px;")
             self.lbl_header_db_badge.setText(f"{server} / {database}")
+            self.show_toast("Connection Successful", f"Connected to {database}!", "success")
             self.log(f"Database connection verified: {msg}", "SUCCESS")
-            QMessageBox.information(self, "Connection Successful", f"✅ {msg}")
         else:
             self.lbl_side_db_chip.setText("🔴 SQL: Disconnected")
             self.lbl_side_db_chip.setStyleSheet("color: #ef4444; font-weight: bold; font-size: 11px;")
+            self.show_toast("Connection Failed", msg, "error")
             self.log(f"Database connection failed: {msg}", "ERROR")
-            QMessageBox.critical(self, "Connection Failed", f"❌ Connection test failed:\n\n{msg}")
 
     def auto_connect_on_startup(self):
         server = self.combo_server.currentText().strip()
         database = self.combo_database.currentText().strip()
+        if not server:
+            return
         auth = "sql" if self.radio_auth_sql.isChecked() else "windows"
         user = self.txt_user.text().strip()
         pwd = self.txt_pwd.text().strip()
@@ -2134,6 +2202,9 @@ class ProfessionalStudioWindow(QMainWindow):
     def auto_fetch_server_details(self):
         server = self.combo_server.currentText().strip()
         database = self.combo_database.currentText().strip()
+        if not server or not database:
+            self.show_toast("Parameters Missing", "Please enter SQL Server Instance and Database Name.", "warning")
+            return
         auth = "sql" if self.radio_auth_sql.isChecked() else "windows"
         user = self.txt_user.text().strip()
         pwd = self.txt_pwd.text().strip()
@@ -2175,9 +2246,10 @@ class ProfessionalStudioWindow(QMainWindow):
 
         server = self.combo_server.currentText().strip()
         database = self.combo_database.currentText().strip()
-        self.lbl_side_db_chip.setText(f"🟢 SQL: {server}")
+        self.lbl_side_db_chip.setText(f"🟢 SQL: Connected")
         self.lbl_side_db_chip.setStyleSheet("color: #10b981; font-weight: bold; font-size: 11px;")
-        self.lbl_side_store_chip.setText(f"🏪 Stores: {len(stores)} in dbo.Setup")
+        self.lbl_side_store_chip.setText(f"🏪 Stores: {len(stores)} found")
+        self.lbl_header_db_badge.setText(f"{server} / {database}")
 
         if latest_s:
             qd = QDate.fromString(latest_s, "yyyy-MM-dd")
@@ -2189,8 +2261,8 @@ class ProfessionalStudioWindow(QMainWindow):
         self.progress_bar.setVisible(False)
         self.lbl_side_db_chip.setText("🔴 SQL: Error")
         self.lbl_side_db_chip.setStyleSheet("color: #ef4444; font-weight: bold; font-size: 11px;")
+        self.show_toast("Auto-Fetch Notice", str(err), "error")
         self.log(f"Auto-fetch failure: {err}", "ERROR")
-        QMessageBox.critical(self, "Auto-Fetch Error", f"❌ Failed to fetch details from SQL Server:\n\n{err}")
 
     # -----------------------------------------------------------------------
     # Email Actions
@@ -2206,12 +2278,12 @@ class ProfessionalStudioWindow(QMainWindow):
         )
         err = smtp_cfg.validate()
         if err:
-            QMessageBox.warning(self, "SMTP Validation Error", f"Incomplete SMTP configuration:\n\n{err}")
+            self.show_toast("Incomplete SMTP Config", str(err), "warning")
             return
 
         recipients = [r.strip() for r in re.split(r"[,;\s]+", self.txt_recipients.text().strip()) if r.strip() and "@" in r]
         if not recipients:
-            QMessageBox.warning(self, "No Recipients", "Please enter at least one valid recipient email address.")
+            self.show_toast("Recipient Required", "Please enter at least one recipient email address.", "warning")
             return
 
         self.log(f"Sending SMTP verification email to: {', '.join(recipients)}...")
@@ -2230,11 +2302,11 @@ class ProfessionalStudioWindow(QMainWindow):
 
         try:
             report_mailer.send(smtp_cfg, job)
+            self.show_toast("Test Email Sent", f"Sent successfully to {len(recipients)} recipient(s)!", "success")
             self.log("SMTP verification email sent successfully!", "SUCCESS")
-            QMessageBox.information(self, "Test Email Sent", f"✅ Test email successfully sent to:\n{', '.join(recipients)}")
         except Exception as e:
+            self.show_toast("Email Dispatch Failed", str(e), "error")
             self.log(f"SMTP dispatch failure: {e}", "ERROR")
-            QMessageBox.critical(self, "Email Dispatch Failed", f"❌ Failed to send test email:\n\n{e}")
 
     # -----------------------------------------------------------------------
     # Report Generation & Live Explorer
@@ -2242,6 +2314,9 @@ class ProfessionalStudioWindow(QMainWindow):
     def generate_and_preview_report(self):
         server = self.combo_server.currentText().strip()
         database = self.combo_database.currentText().strip()
+        if not server or not database:
+            self.show_toast("Configuration Required", "Please configure SQL Server and Database in the SQL Server tab.", "warning")
+            return
         auth = "sql" if self.radio_auth_sql.isChecked() else "windows"
         user = self.txt_user.text().strip()
         pwd = self.txt_pwd.text().strip()
@@ -2251,12 +2326,12 @@ class ProfessionalStudioWindow(QMainWindow):
         end_d = self.dt_end.date().toPython()
 
         if start_d > end_d:
-            QMessageBox.warning(self, "Date Error", "Start Date cannot be after End Date.")
+            self.show_toast("Invalid Range", "Start Date cannot be after End Date.", "warning")
             return
 
         active_sections = self.get_selected_sections()
         if not active_sections:
-            QMessageBox.warning(self, "No Modules Selected", "Please select at least one module section in the Modules tab.")
+            self.show_toast("No Modules Selected", "Please select at least one module in Module Filter.", "warning")
             return
 
         attach_xlsx = self.cb_attach_xlsx.isChecked()
@@ -2282,30 +2357,8 @@ class ProfessionalStudioWindow(QMainWindow):
         self.latest_bundles = bundles
         self.latest_generated_files = generated_files
 
-        self.dash_invoices.setText(f"{int(metrics.get('invoices', 0)):,}")
-        self.dash_gross.setText(f"${float(metrics.get('gross_sales', 0)):,.2f}")
-        self.dash_avg.setText(f"${float(metrics.get('avg_ticket', 0)):,.2f}")
-        self.dash_tax.setText(f"${float(metrics.get('sales_tax', 0)):,.2f}")
-        self.dash_cash.setText(f"${float(metrics.get('cash_collected', 0)):,.2f}")
-
         if bundles:
             b0 = bundles[0]
-            if not b0.top_items.empty:
-                self.dash_table_items.setRowCount(len(b0.top_items.head(10)))
-                for r_idx, (_, r) in enumerate(b0.top_items.head(10).iterrows()):
-                    self.dash_table_items.setItem(r_idx, 0, QTableWidgetItem(f"#{r_idx+1}"))
-                    self.dash_table_items.setItem(r_idx, 1, QTableWidgetItem(str(r.get("ItemName_Desc", ""))))
-                    self.dash_table_items.setItem(r_idx, 2, QTableWidgetItem(str(r.get("total_quantity", 0))))
-                    self.dash_table_items.setItem(r_idx, 3, QTableWidgetItem(f"${float(r.get('total_revenue', 0)):,.2f}"))
-
-            if not b0.by_department.empty:
-                self.dash_table_dept.setRowCount(len(b0.by_department))
-                for r_idx, (_, r) in enumerate(b0.by_department.iterrows()):
-                    self.dash_table_dept.setItem(r_idx, 0, QTableWidgetItem(str(r.get("dept_id", ""))))
-                    self.dash_table_dept.setItem(r_idx, 1, QTableWidgetItem(str(r.get("dept_name", ""))))
-                    self.dash_table_dept.setItem(r_idx, 2, QTableWidgetItem(str(r.get("total_quantity", 0))))
-                    self.dash_table_dept.setItem(r_idx, 3, QTableWidgetItem(f"${float(r.get('total_revenue', 0)):,.2f}"))
-
             if not b0.transactions.empty:
                 self.table_tx.setRowCount(len(b0.transactions))
                 for r_idx, (_, r) in enumerate(b0.transactions.iterrows()):
@@ -2345,17 +2398,18 @@ class ProfessionalStudioWindow(QMainWindow):
                 html_content = first_html_path.read_text(encoding="utf-8")
                 self.preview_browser.setHtml(html_content)
 
+        self.show_toast("Report Generated", f"Generated {len(bundles)} report(s). Total: ${float(metrics.get('gross_sales', 0)):,.2f}", "success")
         self.log("Report rendering complete.", "SUCCESS")
 
     def on_report_error(self, err: str):
         self.progress_bar.setVisible(False)
         self.btn_generate_preview.setEnabled(True)
+        self.show_toast("Report Error", str(err), "error")
         self.log(f"Report generation error: {err}", "ERROR")
-        QMessageBox.critical(self, "Report Generation Error", f"❌ Error generating report:\n\n{err}")
 
     def send_email_now(self):
         if not self.latest_bundles or not self.latest_generated_files:
-            QMessageBox.information(self, "Generate First", "Please click 'Generate Report' before dispatching emails.")
+            self.show_toast("Generate First", "Please click 'Generate Report' before dispatching emails.", "info")
             return
 
         smtp_cfg = report_mailer.SmtpConfig(
@@ -2368,12 +2422,12 @@ class ProfessionalStudioWindow(QMainWindow):
         )
         err = smtp_cfg.validate()
         if err:
-            QMessageBox.warning(self, "SMTP Error", f"SMTP configuration is incomplete:\n\n{err}")
+            self.show_toast("Incomplete SMTP", str(err), "warning")
             return
 
         recipients = [r.strip() for r in re.split(r"[,;\s]+", self.txt_recipients.text().strip()) if r.strip() and "@" in r]
         if not recipients:
-            QMessageBox.warning(self, "No Recipients", "Please enter at least one recipient email address in the Email tab.")
+            self.show_toast("No Recipients", "Please enter at least one recipient email address in Email Dispatch.", "warning")
             return
 
         sms_recipients = [r.strip() for r in re.split(r"[,;\s]+", self.txt_sms_recipients.text().strip()) if r.strip() and "@" in r] if self.cb_send_sms.isChecked() else []
@@ -2396,14 +2450,14 @@ class ProfessionalStudioWindow(QMainWindow):
     def on_email_sent_success(self, count: int):
         self.progress_bar.setVisible(False)
         self.btn_send_email_now.setEnabled(True)
+        self.show_toast("Emails Dispatched", f"Successfully sent {count} store report email(s)!", "success")
         self.log(f"Dispatched {count} report email(s) successfully.", "SUCCESS")
-        QMessageBox.information(self, "Emails Sent", f"✅ Successfully transmitted {count} store report email(s)!")
 
     def on_email_sent_error(self, err: str):
         self.progress_bar.setVisible(False)
         self.btn_send_email_now.setEnabled(True)
+        self.show_toast("Email Error", str(err), "error")
         self.log(f"Email dispatch error: {err}", "ERROR")
-        QMessageBox.critical(self, "Email Error", f"❌ Failed to transmit email:\n\n{err}")
 
     def open_output_folder(self):
         out_path = Path(self.txt_output_dir.text().strip() or OUTPUT_ROOT)
@@ -2411,7 +2465,7 @@ class ProfessionalStudioWindow(QMainWindow):
         try:
             os.startfile(str(out_path))
         except Exception as e:
-            QMessageBox.warning(self, "Folder Open Error", f"Could not open folder:\n{e}")
+            self.show_toast("Folder Notice", str(e), "warning")
 
 
 # ---------------------------------------------------------------------------
@@ -2419,7 +2473,6 @@ class ProfessionalStudioWindow(QMainWindow):
 # ---------------------------------------------------------------------------
 
 def main():
-    # If invoked by Windows Task Scheduler with --scheduled or --cli, execute daily reporting silently
     if any(arg in sys.argv for arg in ("--scheduled", "--cli", "--run", "--cron")):
         import daily_report
         sys.exit(daily_report.main())
