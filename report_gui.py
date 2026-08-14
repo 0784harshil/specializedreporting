@@ -1,6 +1,9 @@
 """Specialized Reporting — pcAmerica CRE (Professional Desktop Edition)
 
 A high-performance, enterprise-grade PySide6 desktop application for pcAmerica CRE POS:
+  - 100% Single-File Deployment (Only Specialized_Reporting.exe needed!)
+  - Self-Bootstrapping: Automatically generates config.env on first launch
+  - Dual-Mode Engine: Interactive Studio GUI + Background Scheduled Runner (--scheduled)
   - Branded Specialized Reporting Desktop Application
   - JD Gurus Emblem Icon Integration
   - Integrated GitHub Auto-Updater & Force-Update Engine (updater.py)
@@ -102,6 +105,35 @@ ICO_PATH = BASE_DIR / "app_icon.ico"
 
 
 def load_app_env() -> dict[str, str]:
+    """Loads configuration, automatically creating config.env on first launch if missing."""
+    if not CONFIG_FILE.exists() and not DOTENV_FILE.exists():
+        default_cfg = {
+            "SQL_SERVER": r"Harshil\pcamerica",
+            "SQL_DATABASE": "cresqlvick",
+            "SQL_AUTH": "sql",
+            "SQL_USER": "sa",
+            "SQL_PASSWORD": "pcAmer1ca",
+            "SMTP_HOST": "smtp.gmail.com",
+            "SMTP_PORT": "587",
+            "SMTP_USER": "harshilp.job10@gmail.com",
+            "SMTP_PASSWORD": "ultb bstt ebjf adrr",
+            "SMTP_FROM": "Daily Reports <harshilp.job10@gmail.com>",
+            "SMTP_USE_TLS": "true",
+            "REPORT_RECIPIENT": "harshil@jdgurus.com",
+            "SMS_RECIPIENTS": "",
+            "REPORT_DATE_MODE": "yesterday",
+            "DRY_RUN": "false",
+            "REPORT_SECTIONS": ",".join(DEFAULT_SECTIONS),
+            "ATTACH_XLSX": "true",
+            "ATTACH_CSV": "true",
+            "SCHEDULE_TIME": "07:00",
+            "SCHEDULE_ENABLED": "true",
+            "GITHUB_REPO": "0784harshil/specializedreporting",
+            "AUTO_CHECK_UPDATES": "true",
+        }
+        save_app_env(default_cfg)
+        return default_cfg
+
     if CONFIG_FILE.exists():
         load_dotenv(CONFIG_FILE, override=True)
     elif DOTENV_FILE.exists():
@@ -128,7 +160,7 @@ def load_app_env() -> dict[str, str]:
         "ATTACH_CSV": os.getenv("ATTACH_CSV", "true"),
         "SCHEDULE_TIME": os.getenv("SCHEDULE_TIME", "07:00"),
         "SCHEDULE_ENABLED": os.getenv("SCHEDULE_ENABLED", "true"),
-        "GITHUB_REPO": os.getenv("GITHUB_REPO", "jdgurus/specialized-reporting"),
+        "GITHUB_REPO": os.getenv("GITHUB_REPO", "0784harshil/specializedreporting"),
         "AUTO_CHECK_UPDATES": os.getenv("AUTO_CHECK_UPDATES", "true"),
     }
 
@@ -169,7 +201,7 @@ def save_app_env(cfg: dict[str, str]) -> None:
         f"SCHEDULE_ENABLED={cfg.get('SCHEDULE_ENABLED', 'true')}",
         "",
         "# --- GitHub Remote Updates ---",
-        f"GITHUB_REPO={cfg.get('GITHUB_REPO', 'jdgurus/specialized-reporting')}",
+        f"GITHUB_REPO={cfg.get('GITHUB_REPO', '0784harshil/specializedreporting')}",
         f"AUTO_CHECK_UPDATES={cfg.get('AUTO_CHECK_UPDATES', 'true')}",
         "",
     ]
@@ -1695,7 +1727,7 @@ class ProfessionalStudioWindow(QMainWindow):
         u_layout.addWidget(self.btn_check_updates_now, 0, 2)
 
         u_layout.addWidget(QLabel("GitHub Repository:"), 1, 0)
-        self.txt_github_repo = QLineEdit("jdgurus/specialized-reporting")
+        self.txt_github_repo = QLineEdit("0784harshil/specializedreporting")
         u_layout.addWidget(self.txt_github_repo, 1, 1)
 
         self.cb_auto_check_updates = QCheckBox("Automatically check for updates on startup")
@@ -1785,7 +1817,7 @@ class ProfessionalStudioWindow(QMainWindow):
     # Auto-Updater Workflow
     # -----------------------------------------------------------------------
     def trigger_background_update_check(self, silent: bool = True):
-        repo = self.cfg.get("GITHUB_REPO", "jdgurus/specialized-reporting").strip()
+        repo = self.cfg.get("GITHUB_REPO", "0784harshil/specializedreporting").strip()
         self.update_check_silent = silent
 
         if not silent:
@@ -1848,8 +1880,7 @@ class ProfessionalStudioWindow(QMainWindow):
             return
 
         info = self.pending_update_info
-        exe_name = "Specialized_Reporting.exe" if getattr(sys, "frozen", False) else "Specialized_Reporting.exe"
-        target_path = BASE_DIR / f"{exe_name}.new"
+        target_path = BASE_DIR / "Specialized_Reporting.exe.new"
 
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 100)
@@ -1893,13 +1924,13 @@ class ProfessionalStudioWindow(QMainWindow):
 
     def register_windows_task(self):
         time_str = self.time_schedule.time().toString("HH:mm")
-        python_exe = sys.executable
-        script_path = BASE_DIR / "daily_report.py"
+        exe_path = Path(sys.executable).resolve() if getattr(sys, "frozen", False) else (BASE_DIR / "Specialized_Reporting.exe")
 
+        # Windows Task Scheduler calls Specialized_Reporting.exe with --scheduled flag
         cmd = [
             "schtasks", "/create",
             "/tn", "pcAmerica_Daily_Sales_Report",
-            "/tr", f'"{python_exe}" "{script_path}"',
+            "/tr", f'"{exe_path}" --scheduled',
             "/sc", "daily",
             "/st", time_str,
             "/f",
@@ -1907,8 +1938,8 @@ class ProfessionalStudioWindow(QMainWindow):
         try:
             res = subprocess.run(cmd, capture_output=True, text=True)
             if res.returncode == 0:
-                self.log(f"Windows Task Scheduler configured for {self.time_schedule.time().toString('hh:mm AP')}.", "SUCCESS")
-                QMessageBox.information(self, "Scheduler Registered", f"✅ Successfully registered Windows Task Scheduler to run daily at {self.time_schedule.time().toString('hh:mm AP')}!")
+                self.log(f"Windows Task Scheduler configured for {self.time_schedule.time().toString('hh:mm AP')} using Specialized_Reporting.exe.", "SUCCESS")
+                QMessageBox.information(self, "Scheduler Registered", f"✅ Successfully registered Windows Task Scheduler to run daily at {self.time_schedule.time().toString('hh:mm AP')} via Specialized_Reporting.exe!")
             else:
                 self.log(f"Scheduler registration notice: {res.stderr.strip()}", "WARN")
                 QMessageBox.warning(self, "Scheduler Notice", f"Result:\n{res.stdout or res.stderr}")
@@ -1989,7 +2020,7 @@ class ProfessionalStudioWindow(QMainWindow):
 
         self.cb_schedule_enabled.setChecked(cfg.get("SCHEDULE_ENABLED", "true").lower() in ("true", "1", "yes"))
 
-        self.txt_github_repo.setText(cfg.get("GITHUB_REPO", "jdgurus/specialized-reporting"))
+        self.txt_github_repo.setText(cfg.get("GITHUB_REPO", "0784harshil/specializedreporting"))
         self.cb_auto_check_updates.setChecked(cfg.get("AUTO_CHECK_UPDATES", "true").lower() in ("true", "1", "yes"))
 
     def collect_ui_settings(self) -> dict[str, str]:
@@ -2384,10 +2415,15 @@ class ProfessionalStudioWindow(QMainWindow):
 
 
 # ---------------------------------------------------------------------------
-# App Entry Point
+# App Entry Point (Dual-Mode: GUI or Background Scheduled Runner)
 # ---------------------------------------------------------------------------
 
 def main():
+    # If invoked by Windows Task Scheduler with --scheduled or --cli, execute daily reporting silently
+    if any(arg in sys.argv for arg in ("--scheduled", "--cli", "--run", "--cron")):
+        import daily_report
+        sys.exit(daily_report.main())
+
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     
