@@ -3,14 +3,13 @@
 A high-performance, enterprise-grade PySide6 desktop application for pcAmerica CRE POS:
   - 100% Single-File Deployment (Only Specialized_Reporting.exe needed)
   - Self-Bootstrapping: Clean, empty defaults for fresh merchant installations
-  - Fluid Responsive Layout with zero unnecessary scrollbars
-  - High-Contrast, Beautiful Vibrant Buttons (Full Visibility)
+  - Crisp, High-Contrast Native UI with Visible Checkmarks and Bold Colored Buttons
   - Non-Intrusive Animated Toast Notification System
-  - Streamlined 5-Tab Navigation (Primary Focus: Report Generator & Live Preview)
+  - Streamlined 5-Tab Navigation (Primary Focus: Report Generator and Live Preview)
   - Dual-Mode Engine: Interactive Studio GUI + Background Scheduled Runner (--scheduled)
   - Branded Specialized Reporting Desktop Application with JD Gurus Emblem Icon
-  - Integrated GitHub Auto-Updater & Force-Update Engine (updater.py)
-  - Cryptographic Salted SHA-256 Team Password Protection & Role-Based Access Control
+  - Integrated GitHub Auto-Updater and Force-Update Engine (updater.py)
+  - Cryptographic Salted SHA-256 Team Password Protection and Role-Based Access Control
   - Automated Daily Schedule (07:00 AM) with 1-Click Windows Task Scheduler Sync
   - Asynchronous background QThread workers for 100% UI responsiveness
 """
@@ -44,7 +43,7 @@ from PySide6.QtCore import (
     QThread,
     Signal,
 )
-from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPixmap
+from PySide6.QtGui import QColor, QFont, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -53,7 +52,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFrame,
-    QGraphicsOpacityEffect,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -104,7 +102,7 @@ ICO_PATH = BASE_DIR / "app_icon.ico"
 def load_app_env() -> dict[str, str]:
     """Loads configuration. If missing on a fresh machine, initializes with clean empty credentials."""
     if not CONFIG_FILE.exists() and not DOTENV_FILE.exists():
-        # Fresh machine defaults — empty credentials for security
+        # Fresh machine defaults — clean empty credentials for security
         default_cfg = {
             "SQL_SERVER": "",
             "SQL_DATABASE": "",
@@ -218,7 +216,6 @@ class ToastNotification(QFrame):
         super().__init__(parent)
         self.duration_ms = duration_ms
         
-        # Color Themes
         if toast_type == "success":
             bg_color = "#059669"
             border_color = "#047857"
@@ -231,7 +228,7 @@ class ToastNotification(QFrame):
             bg_color = "#d97706"
             border_color = "#b45309"
             icon = "⚠️"
-        else: # info
+        else:
             bg_color = "#2563eb"
             border_color = "#1d4ed8"
             icon = "ℹ️"
@@ -292,11 +289,8 @@ class ToastNotification(QFrame):
 
         self.setFixedWidth(380)
         self.adjustSize()
-
-        # Position in top-right corner of parent window
         self.update_position()
 
-        # Auto-dismiss timer
         self.timer = QTimer(self)
         self.timer.setSingleShot(True)
         self.timer.timeout.connect(self.close_toast)
@@ -722,7 +716,7 @@ class TeamLoginDialog(QDialog):
 
 
 # ---------------------------------------------------------------------------
-# Modern High-Contrast Stylesheet (Zero Cut-Offs & Vivid Buttons)
+# Modern High-Contrast Stylesheet
 # ---------------------------------------------------------------------------
 
 MODERN_STYLESHEET = """
@@ -841,12 +835,12 @@ QPushButton.btnSecondary:hover {
 }
 
 QPushButton.btnSuccess {
-    background-color: #10b981;
+    background-color: #059669;
     color: #ffffff !important;
     font-weight: 700;
 }
 QPushButton.btnSuccess:hover {
-    background-color: #059669;
+    background-color: #047857;
 }
 
 QPushButton.btnAccent {
@@ -862,20 +856,6 @@ QCheckBox, QRadioButton {
     spacing: 8px;
     font-weight: 500;
     color: #334155;
-}
-QCheckBox::indicator, QRadioButton::indicator {
-    width: 18px;
-    height: 18px;
-    border-radius: 4px;
-    border: 1.5px solid #94a3b8;
-    background: #ffffff;
-}
-QRadioButton::indicator {
-    border-radius: 9px;
-}
-QCheckBox::indicator:checked, QRadioButton::indicator:checked {
-    background-color: #2563eb;
-    border-color: #2563eb;
 }
 
 QTableWidget {
@@ -973,7 +953,6 @@ class ProfessionalStudioWindow(QMainWindow):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        # Reposition any active toast notifications
         for child in self.findChildren(ToastNotification):
             child.update_position()
 
@@ -1121,11 +1100,11 @@ class ProfessionalStudioWindow(QMainWindow):
         self.nav_list.setObjectName("navSidebar")
         
         nav_items = [
-            ("🚀  Report Generator & Preview", 0),
-            ("🧩  Module & Section Filter", 1),
-            ("🔌  SQL Server & Discovery", 2),
-            ("📧  Email & SMTP Dispatch", 3),
-            ("⚙️  Settings & Scheduling", 4),
+            ("🚀  Report Generator and Preview", 0),
+            ("🧩  Module and Section Filter", 1),
+            ("🔌  SQL Server and Discovery", 2),
+            ("📧  Email and SMTP Dispatch", 3),
+            ("⚙️  Settings and Scheduling", 4),
         ]
         for label, idx in nav_items:
             item = QListWidgetItem(label)
@@ -1154,7 +1133,7 @@ class ProfessionalStudioWindow(QMainWindow):
         side_vbox.addWidget(status_card)
 
         self.btn_save_top = QPushButton("💾 Save Config")
-        self.btn_save_top.setStyleSheet("background-color: #10b981; color: white !important; font-weight: bold; padding: 8px;")
+        self.btn_save_top.setStyleSheet("background-color: #059669; color: white !important; font-weight: bold; padding: 8px; border-radius: 6px;")
         self.btn_save_top.clicked.connect(self.save_settings)
         side_vbox.addWidget(self.btn_save_top)
 
@@ -1173,7 +1152,7 @@ class ProfessionalStudioWindow(QMainWindow):
         top_layout = QHBoxLayout(top_bar)
         top_layout.setContentsMargins(6, 4, 6, 4)
 
-        self.lbl_page_title = QLabel("Report Generator & Live Preview")
+        self.lbl_page_title = QLabel("Report Generator and Live Preview")
         self.lbl_page_title.setStyleSheet("font-size: 17px; font-weight: 800; color: #0f172a;")
         top_layout.addWidget(self.lbl_page_title)
 
@@ -1276,11 +1255,11 @@ class ProfessionalStudioWindow(QMainWindow):
 
     def switch_view(self, row: int):
         titles = [
-            "Report Generator & Live Preview",
-            "Module & Section Filter",
-            "SQL Server Connection & Auto-Discovery",
-            "Email & SMTP Dispatch",
-            "System Settings & Automated Scheduling",
+            "Report Generator and Live Preview",
+            "Module and Section Filter",
+            "SQL Server and Auto-Discovery",
+            "Email and SMTP Dispatch",
+            "System Settings and Automated Scheduling",
         ]
         if 0 <= row < len(titles):
             self.lbl_page_title.setText(titles[row])
@@ -1292,7 +1271,7 @@ class ProfessionalStudioWindow(QMainWindow):
         self.btn_toggle_console.setText("Hide Log" if not is_visible else "Show Log")
 
     # -----------------------------------------------------------------------
-    # View 0: Report Generator & Live Preview (High-Contrast Buttons)
+    # View 0: Report Generator and Live Preview (High-Contrast Buttons)
     # -----------------------------------------------------------------------
     def setup_generator_view(self):
         layout = QVBoxLayout(self.view_generator)
@@ -1378,7 +1357,7 @@ class ProfessionalStudioWindow(QMainWindow):
         th_vbox.setContentsMargins(4, 4, 4, 4)
 
         th_toolbar = QHBoxLayout()
-        lbl_p_info = QLabel("<b>Instant Email Layout Preview</b> (Formatting, KPIs & Tables)")
+        lbl_p_info = QLabel("<b>Instant Email Layout Preview</b> (Formatting, KPIs and Tables)")
         lbl_p_info.setStyleSheet("color: #475569; font-size: 12px;")
         th_toolbar.addWidget(lbl_p_info)
         th_toolbar.addStretch()
@@ -1417,7 +1396,7 @@ class ProfessionalStudioWindow(QMainWindow):
         emp_vbox.addWidget(self.table_emp)
         self.preview_tabs.addTab(tab_emp, "👥 Employee TimeClock")
 
-        # Tab 4: Audit & Loss Prevention
+        # Tab 4: Audit and Loss Prevention
         tab_audit = QWidget()
         aud_vbox = QVBoxLayout(tab_audit)
         aud_vbox.setContentsMargins(4, 4, 4, 4)
@@ -1426,7 +1405,7 @@ class ProfessionalStudioWindow(QMainWindow):
         self.table_audit.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
         self.table_audit.setAlternatingRowColors(True)
         aud_vbox.addWidget(self.table_audit)
-        self.preview_tabs.addTab(tab_audit, "🛡️ Loss Prevention & Audit")
+        self.preview_tabs.addTab(tab_audit, "🛡️ Loss Prevention and Audit")
 
         layout.addWidget(self.preview_tabs, stretch=1)
 
@@ -1457,7 +1436,7 @@ class ProfessionalStudioWindow(QMainWindow):
                     self.dt_end.setDate(qd)
 
     # -----------------------------------------------------------------------
-    # View 1: Modular Filter & Sections (Responsive Grid Layout, No Outer Scrollbar)
+    # View 1: Modular Filter and Sections (Polished Rich-Text Rows)
     # -----------------------------------------------------------------------
     def setup_modules_view(self):
         layout = QVBoxLayout(self.view_modules)
@@ -1508,64 +1487,92 @@ class ProfessionalStudioWindow(QMainWindow):
         presets_hbox.addStretch()
         layout.addLayout(presets_hbox)
 
-        # 2-Column Responsive Grid of Module Cards
         grid_modules = QGridLayout()
         grid_modules.setSpacing(10)
 
         self.module_checkboxes: dict[str, QCheckBox] = {}
 
-        # 1. Sales Card
-        grp_sales = QGroupBox("📊 Sales Performance & Analytics")
+        # 1. Sales Performance Box
+        grp_sales = QGroupBox("📊 Sales Performance and Analytics")
         v_sales = QVBoxLayout(grp_sales)
         v_sales.setSpacing(6)
         sales_items = [
             ("kpis", "Key Metrics / KPIs", "Invoice count, Gross/Net Sales, Avg Ticket, Tax, Cash"),
-            ("departments", "Sales by Department", "Departmental item quantities, sales & fixed taxes"),
+            ("departments", "Sales by Department", "Departmental item quantities, sales and fixed taxes"),
             ("fixed_tax", "Fixed Tax Buckets", "Sales grouped by Fixed Tax amount ($0.15, $0.30)"),
             ("top_items", "Top 20 Best Sellers", "Highest revenue generating items sold"),
             ("hourly", "Hourly Sales Curve", "Hourly transaction volume and invoice count"),
             ("payments", "Payment Breakdown", "Cash, Credit Card, Debit, Check, Gift Card"),
         ]
         for sec_key, title, d_text in sales_items:
-            cb = QCheckBox(f"<b>{title}</b> — <span style='color:#64748b;'>{d_text}</span>")
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 2, 0, 2)
+            row_layout.setSpacing(8)
+
+            cb = QCheckBox()
             cb.setChecked(True)
             self.module_checkboxes[sec_key] = cb
-            v_sales.addWidget(cb)
+
+            lbl = QLabel(f"<b>{title}</b> — <span style='color:#64748b; font-size:12px;'>{d_text}</span>")
+            lbl.setTextFormat(Qt.TextFormat.RichText)
+            lbl.setStyleSheet("background: transparent; font-size: 13px;")
+
+            row_layout.addWidget(cb)
+            row_layout.addWidget(lbl, stretch=1)
+            v_sales.addWidget(row_widget)
         grid_modules.addWidget(grp_sales, 0, 0)
 
-        # 2. Staff & Audit Card
-        grp_ops = QGroupBox("👥 Staff & Loss Prevention Audit")
+        # 2. Staff and Loss Prevention Box
+        grp_ops = QGroupBox("👥 Staff and Loss Prevention Audit")
         v_ops = QVBoxLayout(grp_ops)
         v_ops.setSpacing(6)
         ops_items = [
             ("employees", "Employee TimeClock", "Staff shifts, clock-in/out timestamps, hours, wages"),
-            ("voids", "Transaction & Line Voids", "Voided invoices with cashier ID, timestamp, amount"),
-            ("price_changes", "Price Overrides", "Manual price changes with original price & difference"),
+            ("voids", "Transaction and Line Voids", "Voided invoices with cashier ID, timestamp, amount"),
+            ("price_changes", "Price Overrides", "Manual price changes with original price and difference"),
             ("deletes", "Line Item Deletions", "Items deleted before invoice completion"),
             ("transactions", "Itemized Detail CSV", "Full itemized line-by-line transaction journal"),
         ]
         for sec_key, title, d_text in ops_items:
-            cb = QCheckBox(f"<b>{title}</b> — <span style='color:#64748b;'>{d_text}</span>")
+            row_widget = QWidget()
+            row_layout = QHBoxLayout(row_widget)
+            row_layout.setContentsMargins(0, 2, 0, 2)
+            row_layout.setSpacing(8)
+
+            cb = QCheckBox()
             cb.setChecked(True)
             self.module_checkboxes[sec_key] = cb
-            v_ops.addWidget(cb)
+
+            lbl = QLabel(f"<b>{title}</b> — <span style='color:#64748b; font-size:12px;'>{d_text}</span>")
+            lbl.setTextFormat(Qt.TextFormat.RichText)
+            lbl.setStyleSheet("background: transparent; font-size: 13px;")
+
+            row_layout.addWidget(cb)
+            row_layout.addWidget(lbl, stretch=1)
+            v_ops.addWidget(row_widget)
         grid_modules.addWidget(grp_ops, 0, 1)
 
         layout.addLayout(grid_modules)
 
-        grp_attach = QGroupBox("📎 Attachment & Notification Delivery Options")
+        # 3. Attachments Box
+        grp_attach = QGroupBox("📎 Attachment and Notification Delivery Options")
         att_hbox = QHBoxLayout(grp_attach)
+        att_hbox.setContentsMargins(12, 12, 12, 12)
+        att_hbox.setSpacing(20)
+
         self.cb_attach_xlsx = QCheckBox("Include Styled Excel (.xlsx) Multi-Sheet Workbook")
         self.cb_attach_xlsx.setChecked(True)
         att_hbox.addWidget(self.cb_attach_xlsx)
 
-        self.cb_attach_csv = QCheckBox("Include Raw CSV Detail Files (Transactions & Shifts)")
+        self.cb_attach_csv = QCheckBox("Include Raw CSV Detail Files (Transactions and Shifts)")
         self.cb_attach_csv.setChecked(True)
         att_hbox.addWidget(self.cb_attach_csv)
 
         self.cb_send_sms = QCheckBox("Send Mobile Text Summary via SMS Gateways")
         self.cb_send_sms.setChecked(False)
         att_hbox.addWidget(self.cb_send_sms)
+        att_hbox.addStretch()
 
         layout.addWidget(grp_attach)
         layout.addStretch()
@@ -1587,7 +1594,7 @@ class ProfessionalStudioWindow(QMainWindow):
         return {k for k, cb in self.module_checkboxes.items() if cb.isChecked()}
 
     # -----------------------------------------------------------------------
-    # View 2: SQL Server Connection & Discovery
+    # View 2: SQL Server Connection and Discovery
     # -----------------------------------------------------------------------
     def setup_sql_view(self):
         layout = QVBoxLayout(self.view_sql)
@@ -1667,7 +1674,7 @@ class ProfessionalStudioWindow(QMainWindow):
 
         layout.addWidget(grp_conn)
 
-        grp_details = QGroupBox("Discovered Merchants & Stores in dbo.Setup")
+        grp_details = QGroupBox("Discovered Merchants and Stores in dbo.Setup")
         det_layout = QVBoxLayout(grp_details)
         det_layout.setContentsMargins(12, 14, 12, 12)
 
@@ -1707,7 +1714,7 @@ class ProfessionalStudioWindow(QMainWindow):
             btn.setText("👁️")
 
     # -----------------------------------------------------------------------
-    # View 3: Email & SMTP Dispatch
+    # View 3: Email and SMTP Dispatch
     # -----------------------------------------------------------------------
     def setup_email_view(self):
         layout = QVBoxLayout(self.view_email)
@@ -1757,7 +1764,7 @@ class ProfessionalStudioWindow(QMainWindow):
 
         layout.addWidget(grp_smtp)
 
-        grp_recip = QGroupBox("Report Delivery & Recipients")
+        grp_recip = QGroupBox("Report Delivery and Recipients")
         r_layout = QGridLayout(grp_recip)
         r_layout.setSpacing(10)
         r_layout.setContentsMargins(14, 16, 14, 14)
@@ -1787,7 +1794,7 @@ class ProfessionalStudioWindow(QMainWindow):
         layout.addStretch()
 
     # -----------------------------------------------------------------------
-    # View 4: Settings & Automated Scheduling
+    # View 4: Settings and Automated Scheduling
     # -----------------------------------------------------------------------
     def setup_settings_view(self):
         layout = QVBoxLayout(self.view_settings)
@@ -1795,7 +1802,7 @@ class ProfessionalStudioWindow(QMainWindow):
         layout.setSpacing(12)
 
         # 1. GitHub Remote Updates Box
-        grp_updates = QGroupBox("🔄 GitHub Remote Updates & Auto-Updater")
+        grp_updates = QGroupBox("🔄 GitHub Remote Updates and Auto-Updater")
         u_layout = QGridLayout(grp_updates)
         u_layout.setSpacing(10)
         u_layout.setContentsMargins(14, 16, 14, 14)
@@ -1860,7 +1867,7 @@ class ProfessionalStudioWindow(QMainWindow):
         layout.addWidget(grp_sched)
 
         # 3. Security Box
-        grp_auth = QGroupBox("🔐 Team Master Password & Security Gate")
+        grp_auth = QGroupBox("🔐 Team Master Password and Security Gate")
         a_layout = QVBoxLayout(grp_auth)
         a_layout.setSpacing(8)
         a_layout.setContentsMargins(14, 16, 14, 14)
@@ -1880,7 +1887,7 @@ class ProfessionalStudioWindow(QMainWindow):
         layout.addWidget(grp_auth)
 
         # 4. Storage Box
-        grp_dirs = QGroupBox("Directories & Storage")
+        grp_dirs = QGroupBox("Directories and Storage")
         d_layout = QGridLayout(grp_dirs)
         d_layout.setSpacing(10)
         d_layout.setContentsMargins(14, 16, 14, 14)
@@ -2309,7 +2316,7 @@ class ProfessionalStudioWindow(QMainWindow):
             self.log(f"SMTP dispatch failure: {e}", "ERROR")
 
     # -----------------------------------------------------------------------
-    # Report Generation & Live Explorer
+    # Report Generation and Live Explorer
     # -----------------------------------------------------------------------
     def generate_and_preview_report(self):
         server = self.combo_server.currentText().strip()
