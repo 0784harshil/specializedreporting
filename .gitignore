@@ -1,0 +1,40 @@
+# ===================================================================
+# Specialized Reporting — .gitignore
+# Protects all merchant server credentials, passwords, local reports,
+# and build artifacts from ever being committed or overwritten.
+# ===================================================================
+
+# Local merchant configuration & authentication secrets
+.env
+config.env
+.admin_auth
+*.env.local
+
+# Generated reports & logs
+daily_reports/
+*.log
+scratch/
+apply_update.bat
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+ENV/
+
+# Large binaries & PyInstaller Build artifacts (Published via GitHub Releases)
+*.exe
+build/
+dist/
+*.spec
+*.new
+*.tmp
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
