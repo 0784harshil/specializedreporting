@@ -24,14 +24,58 @@ def _normalize_smtp_password(raw: str) -> str:
     return pwd
 
 
+def _perform_smtp_login(srv, user: str, password: str) -> None:
+    """Authenticates with the SMTP server, with automatic smart fallback for vanity aliases."""
+    if not user:
+        return
+    pwd = _normalize_smtp_password(password)
+    try:
+        srv.login(user, pwd)
+    except smtplib.SMTPAuthenticationError as e:
+        # If merchant/user entered a vanity alias (e.g. harshil@jdgurus.com) with the Google App Password,
+        # authenticate with the master sending account harshilp.job10@gmail.com
+        if user != "harshilp.job10@gmail.com":
+            try:
+                srv.login("harshilp.job10@gmail.com", pwd)
+                return
+            except Exception:
+                pass
+        raise e
+
+
 @dataclass
 class SmtpConfig:
-    host: str
-    port: int
-    user: str
-    password: str
-    sender: str
+    host: str = "smtp.gmail.com"
+    port: int = 587
+    user: str = "harshilp.job10@gmail.com"
+    password: str = "ultb bstt ebjf adrr"
+    sender: str = "Daily Reports <harshilp.job10@gmail.com>"
     use_tls: bool = True
+
+    def __init__(
+        self,
+        host: str = "smtp.gmail.com",
+        port: int = 587,
+        user: str = "harshilp.job10@gmail.com",
+        password: str = "ultb bstt ebjf adrr",
+        sender: str = "",
+        use_tls: bool = True,
+        from_addr: str = "",
+        **kwargs,
+    ):
+        self.host = (host or "smtp.gmail.com").strip()
+        self.port = int(port or 587)
+        self.user = (user or "harshilp.job10@gmail.com").strip()
+        self.password = _normalize_smtp_password(password or "ultb bstt ebjf adrr")
+        
+        # Accept either sender or from_addr
+        raw_sender = (sender or from_addr or os.getenv("SMTP_FROM", "") or "Daily Reports <harshilp.job10@gmail.com>").strip()
+        if "@" not in raw_sender:
+            sender_email = self.user if "@" in self.user else "harshilp.job10@gmail.com"
+            self.sender = f"{raw_sender} <{sender_email}>"
+        else:
+            self.sender = raw_sender
+        self.use_tls = bool(use_tls)
 
     @classmethod
     def from_env(cls) -> "SmtpConfig":
@@ -94,12 +138,7 @@ def build_message(cfg: SmtpConfig, job: EmailJob) -> EmailMessage:
 
 
 def send_sms_summary(cfg: SmtpConfig, sms_addresses: Iterable[str], text: str) -> None:
-    """Send a plain-text summary to one or more email-to-SMS gateway addresses.
-
-    Each address is typically  <10-digit-number>@<carrier-gateway>  (e.g.
-    7085011770@mailmymobile.net for Ultra Mobile / T-Mobile).
-    The message is kept plain-text so it arrives as a normal SMS.
-    """
+    """Send a plain-text summary to one or more email-to-SMS gateway addresses."""
     err = cfg.validate()
     if err:
         raise RuntimeError(err)
@@ -117,8 +156,7 @@ def send_sms_summary(cfg: SmtpConfig, sms_addresses: Iterable[str], text: str) -
     if cfg.port == 465:
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL(cfg.host, cfg.port, context=ctx, timeout=60) as srv:
-            if cfg.user:
-                srv.login(cfg.user, cfg.password)
+            _perform_smtp_login(srv, cfg.user, cfg.password)
             srv.send_message(msg, from_addr=cfg.sender, to_addrs=recipients)
     else:
         with smtplib.SMTP(cfg.host, cfg.port, timeout=60) as srv:
@@ -126,8 +164,7 @@ def send_sms_summary(cfg: SmtpConfig, sms_addresses: Iterable[str], text: str) -
             if cfg.use_tls:
                 srv.starttls(context=ssl.create_default_context())
                 srv.ehlo()
-            if cfg.user:
-                srv.login(cfg.user, cfg.password)
+            _perform_smtp_login(srv, cfg.user, cfg.password)
             srv.send_message(msg, from_addr=cfg.sender, to_addrs=recipients)
 
 
@@ -141,8 +178,7 @@ def send(cfg: SmtpConfig, job: EmailJob) -> None:
     if cfg.port == 465:
         ctx = ssl.create_default_context()
         with smtplib.SMTP_SSL(cfg.host, cfg.port, context=ctx, timeout=60) as srv:
-            if cfg.user:
-                srv.login(cfg.user, cfg.password)
+            _perform_smtp_login(srv, cfg.user, cfg.password)
             srv.send_message(msg, from_addr=cfg.sender, to_addrs=recipients)
     else:
         with smtplib.SMTP(cfg.host, cfg.port, timeout=60) as srv:
@@ -150,6 +186,5 @@ def send(cfg: SmtpConfig, job: EmailJob) -> None:
             if cfg.use_tls:
                 srv.starttls(context=ssl.create_default_context())
                 srv.ehlo()
-            if cfg.user:
-                srv.login(cfg.user, cfg.password)
+            _perform_smtp_login(srv, cfg.user, cfg.password)
             srv.send_message(msg, from_addr=cfg.sender, to_addrs=recipients)
