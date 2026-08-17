@@ -2432,12 +2432,14 @@ class ProfessionalStudioWindow(QMainWindow):
             QTimer.singleShot(600, self.send_email_now)
 
     def generate_and_dispatch_full_report(self):
-        self.nav_stack.setCurrentIndex(0)
-        for b in self.nav_buttons:
-            b.setChecked(b.property("tabIndex") == 0)
-        self.show_toast("Generating Report", "Extracting store sales data to send report...", "info")
-        self.auto_dispatch_after_generation = True
-        self.generate_and_preview_report()
+        try:
+            self.nav_list.setCurrentRow(0)
+            self.show_toast("Generating Report", "Extracting store sales data to send report...", "info")
+            self.auto_dispatch_after_generation = True
+            self.generate_and_preview_report()
+        except Exception as e:
+            self.show_toast("Dispatch Error", str(e), "error")
+            self.log(f"Dispatch error: {e}", "ERROR")
 
     def on_report_error(self, err: str):
         self.progress_bar.setVisible(False)
