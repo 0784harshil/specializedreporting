@@ -99,6 +99,28 @@ ICON_PATH = BASE_DIR / "app_icon.png"
 ICO_PATH = BASE_DIR / "app_icon.ico"
 
 
+def _to_py_date(val) -> _dt.date:
+    """Safely convert any QDate, datetime, or date-like object into standard datetime.date."""
+    if isinstance(val, _dt.date) and not isinstance(val, _dt.datetime):
+        return val
+    if isinstance(val, _dt.datetime):
+        return val.date()
+    if hasattr(val, "year") and hasattr(val, "month") and hasattr(val, "day"):
+        try:
+            y = val.year() if callable(val.year) else val.year
+            m = val.month() if callable(val.month) else val.month
+            d = val.day() if callable(val.day) else val.day
+            return _dt.date(int(y), int(m), int(d))
+        except Exception:
+            pass
+    if hasattr(val, "toPython") and callable(val.toPython):
+        try:
+            return val.toPython()
+        except Exception:
+            pass
+    return _dt.date.today()
+
+
 def load_app_env() -> dict[str, str]:
     """Loads configuration. If missing on a fresh machine, initializes with clean empty credentials."""
     if not CONFIG_FILE.exists() and not DOTENV_FILE.exists():
@@ -2351,8 +2373,8 @@ class ProfessionalStudioWindow(QMainWindow):
         pwd = self.txt_pwd.text().strip()
 
         st_id = self.combo_run_store.currentData()
-        start_d = self.dt_start.date().toPython()
-        end_d = self.dt_end.date().toPython()
+        start_d = _to_py_date(self.dt_start.date())
+        end_d = _to_py_date(self.dt_end.date())
 
         if start_d > end_d:
             self.show_toast("Invalid Range", "Start Date cannot be after End Date.", "warning")
