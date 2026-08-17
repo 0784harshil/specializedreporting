@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Optional, Tuple
 
-CURRENT_VERSION = "1.2.0"
+CURRENT_VERSION = "1.3.0"
 DEFAULT_GITHUB_REPO = "0784harshil/specializedreporting"
 MANIFEST_RAW_URL = "https://raw.githubusercontent.com/{repo}/main/version.json"
 RELEASE_API_URL = "https://api.github.com/repos/{repo}/releases/latest"

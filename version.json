@@ -1,10 +1,10 @@
 {
-  "version": "1.2.0",
-  "min_required_version": "1.2.0",
+  "version": "1.3.0",
+  "min_required_version": "1.3.0",
   "force_update": true,
   "release_date": "2026-08-17",
   "app_name": "Specialized Reporting",
-  "changelog": "Pre-filled working SMTP credentials, ODBC Driver 18 connection compatibility, and enhanced checkmark UI.",
+  "changelog": "v1.3.0: Fixed SQL Server 2008/2012 compatibility, enabled Windows Task Scheduler with 1-click registration, instant report generation & email dispatch.",
   "download_url": "https://github.com/0784harshil/specializedreporting/releases/latest/download/Specialized_Reporting.exe",
   "manifest_url": "https://raw.githubusercontent.com/0784harshil/specializedreporting/main/version.json"
 }
