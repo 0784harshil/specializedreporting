@@ -50,90 +50,82 @@ class UpdateInfo:
 
 
 def check_for_updates(github_repo: str = DEFAULT_GITHUB_REPO, timeout: int = 8) -> UpdateInfo:
-    """Checks the remote GitHub repository for the latest version manifest.
+    """Checks the remote GitHub repository for the latest version via Releases API & version.json.
     
     Returns UpdateInfo with comparison status and force-update directive.
     """
     repo = github_repo.strip() or DEFAULT_GITHUB_REPO
-    urls_to_try = [
-        MANIFEST_RAW_URL.format(repo=repo),
-        RELEASE_API_URL.format(repo=repo),
-    ]
-
     headers = {
         "User-Agent": f"SpecializedReporting-Updater/{CURRENT_VERSION}",
         "Accept": "application/json",
     }
 
-    last_error = None
-    manifest_data = None
+    manifest_data = {}
+    release_tag = ""
+    release_exe_url = ""
+    release_changelog = ""
+    release_date = ""
 
-    # 1. Try fetching raw version.json
-    for url in urls_to_try:
-        try:
-            req = urllib.request.Request(url, headers=headers)
-            with urllib.request.urlopen(req, timeout=timeout) as resp:
-                if resp.status == 200:
-                    raw = resp.read().decode("utf-8")
-                    data = json.loads(raw)
-                    # If this is GitHub Release API response
-                    if "tag_name" in data:
-                        tag = data.get("tag_name", "").lstrip("vV")
-                        assets = data.get("assets", [])
-                        exe_url = ""
-                        for a in assets:
-                            if a.get("name", "").endswith(".exe"):
-                                exe_url = a.get("browser_download_url", "")
-                                break
-                        manifest_data = {
-                            "version": tag,
-                            "min_required_version": "1.0.0",
-                            "force_update": False,
-                            "release_date": data.get("published_at", "")[:10],
-                            "changelog": data.get("body", "General improvements and fixes."),
-                            "download_url": exe_url or f"https://github.com/{repo}/releases/latest/download/Specialized_Reporting.exe",
-                        }
-                    else:
-                        manifest_data = data
-                    break
-        except Exception as ex:
-            last_error = ex
-            continue
+    # 1. Check GitHub Release API first (fastest source of published releases)
+    try:
+        req = urllib.request.Request(RELEASE_API_URL.format(repo=repo), headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                rel = json.loads(resp.read().decode("utf-8"))
+                release_tag = rel.get("tag_name", "").lstrip("vV").strip()
+                release_date = (rel.get("published_at", "") or "")[:10]
+                release_changelog = rel.get("body", "Latest update with improvements and fixes.") or ""
+                for a in rel.get("assets", []):
+                    if a.get("name", "").endswith(".exe"):
+                        release_exe_url = a.get("browser_download_url", "")
+                        break
+    except Exception:
+        pass
 
-    if not manifest_data:
-        return UpdateInfo(
-            available=False,
-            latest_version=CURRENT_VERSION,
-            current_version=CURRENT_VERSION,
-            is_forced=False,
-            download_url="",
-            changelog=f"Could not connect to update server ({last_error})",
-            release_date="",
-        )
+    # 2. Check version.json on main branch
+    try:
+        req = urllib.request.Request(MANIFEST_RAW_URL.format(repo=repo), headers=headers)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if resp.status == 200:
+                manifest_data = json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        pass
 
-    remote_ver_str = str(manifest_data.get("version", CURRENT_VERSION)).strip()
-    min_req_str = str(manifest_data.get("min_required_version", "1.0.0")).strip()
-    raw_force = manifest_data.get("force_update", False)
-    
-    remote_tuple = parse_version_tuple(remote_ver_str)
+    # Pick the highest version between Release tag and version.json
+    manifest_v = manifest_data.get("version", "").strip().lstrip("vV")
+    target_v = release_tag
+    if manifest_v and parse_version_tuple(manifest_v) > parse_version_tuple(target_v):
+        target_v = manifest_v
+
+    if not target_v:
+        target_v = manifest_v or release_tag or CURRENT_VERSION
+
+    download_url = (
+        manifest_data.get("download_url") or
+        release_exe_url or
+        f"https://github.com/{repo}/releases/latest/download/Specialized_Reporting.exe"
+    )
+    is_forced = manifest_data.get("force_update", False)
+    min_required = manifest_data.get("min_required_version", "1.0.0")
+
     curr_tuple = parse_version_tuple(CURRENT_VERSION)
-    min_req_tuple = parse_version_tuple(min_req_str)
+    latest_tuple = parse_version_tuple(target_v)
+    min_tuple = parse_version_tuple(min_required)
 
-    has_new_version = remote_tuple > curr_tuple
-    is_mandatory = has_new_version and (raw_force or (curr_tuple < min_req_tuple))
+    is_available = latest_tuple > curr_tuple
+    is_mandatory = is_available and (is_forced or (min_tuple > curr_tuple))
 
-    download_url = manifest_data.get("download_url", f"https://github.com/{repo}/releases/latest/download/Specialized_Reporting.exe")
-    changelog = manifest_data.get("changelog", "Bug fixes and performance enhancements.")
-    release_date = manifest_data.get("release_date", "")
+    changelog = manifest_data.get("changelog") or release_changelog or "Latest updates and enhancements."
+    rel_date = manifest_data.get("release_date") or release_date or time.strftime("%Y-%m-%d")
 
     return UpdateInfo(
-        available=has_new_version,
-        latest_version=remote_ver_str,
+        available=is_available,
+        latest_version=target_v,
         current_version=CURRENT_VERSION,
         is_forced=is_mandatory,
         download_url=download_url,
         changelog=changelog,
-        release_date=release_date,
+        release_date=rel_date,
     )
 
 
@@ -186,55 +178,53 @@ def apply_update_and_restart(app_dir: Path, target_exe_name: str = "Specialized_
     bat_content = f"""@echo off
 setlocal
 echo ===================================================
-echo Specialized Reporting — Applying Software Update...
+echo   Specialized Reporting — Seamless Process Swapper
 echo ===================================================
-echo Waiting for existing application process (PID: {current_pid}) to close...
-
-:: Give the running process 2 seconds to gracefully exit
+echo Waiting for existing process (PID {current_pid}) to terminate...
 timeout /t 2 /nobreak >nul
 
-:: Ensure old process is killed
-taskkill /F /PID {current_pid} >nul 2>&1
-
-:: Loop until the old exe is unlocked and can be replaced
-:RETRY_REPLACE
-if exist "{target_exe}" (
-    del /F /Q "{target_exe}" >nul 2>&1
-    if exist "{target_exe}" (
-        echo File in use, retrying in 1 second...
-        timeout /t 1 /nobreak >nul
-        goto RETRY_REPLACE
-    )
+set RETRIES=0
+:RETRY_LOOP
+tasklist /fi "PID eq {current_pid}" 2>nul | find "{current_pid}" >nul
+if %ERRORLEVEL% equ 0 (
+    timeout /t 1 /nobreak >nul
+    set /a RETRIES+=1
+    if %RETRIES% lss 10 goto RETRY_LOOP
+    taskkill /f /pid {current_pid} >nul 2>&1
 )
 
-:: Move the downloaded .new file into place
-move /Y "{new_exe}" "{target_exe}" >nul 2>&1
-
-if exist "{target_exe}" (
-    echo Update applied successfully!
-    echo Restarting Specialized Reporting...
-    start "" "{target_exe}"
-) else (
-    echo Update replacement error!
-    pause
+echo Replacing {target_exe_name}...
+copy /y "{new_exe}" "{target_exe}" >nul 2>&1
+if %ERRORLEVEL% neq 0 (
+    echo Retrying binary replacement in 1 second...
+    timeout /t 1 /nobreak >nul
+    copy /y "{new_exe}" "{target_exe}" >nul 2>&1
 )
 
-:: Clean up updater script
-del "%~f0" >nul 2>&1
-exit
+if exist "{new_exe}" (
+    del /f /q "{new_exe}" >nul 2>&1
+)
+
+echo Relaunching updated Specialized Reporting...
+start "" "{target_exe}"
+
+timeout /t 1 /nobreak >nul
+(goto) 2>nul & del "%~f0"
 """
-    bat_path.write_text(bat_content, encoding="utf-8")
+    bat_path.write_text(bat_content, encoding="ansi")
 
-    # Launch detached batch script
+    # Spawn updater batch file completely detached
     if sys.platform == "win32":
+        DETACHED_PROCESS = 0x00000008
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
         subprocess.Popen(
-            ["cmd.exe", "/c", str(bat_path)],
-            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
-            cwd=str(app_dir),
+            [str(bat_path)],
+            creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
             close_fds=True,
+            shell=True,
         )
     else:
-        subprocess.Popen(["bash", str(bat_path)], cwd=str(app_dir))
+        subprocess.Popen(["cmd.exe", "/c", str(bat_path)])
 
-    # Terminate Python process immediately to release file lock
+    # Immediately exit current Python / Qt process
     sys.exit(0)
