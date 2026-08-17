@@ -241,6 +241,28 @@ def fetch_merchants(conn, store_id: Optional[str] = None) -> pd.DataFrame:
     return df
 
 
+def _normalize_to_date(val) -> Optional[_dt.date]:
+    """Safely convert any DB/Pandas date, datetime, Timestamp or string to datetime.date."""
+    if val is None or pd.isna(val):
+        return None
+    if isinstance(val, _dt.datetime):
+        return val.date()
+    if isinstance(val, _dt.date):
+        return val
+    if hasattr(val, "date"):
+        attr = getattr(val, "date")
+        if callable(attr):
+            return attr()
+        if isinstance(attr, _dt.date):
+            return attr
+    if isinstance(val, str):
+        try:
+            return _dt.date.fromisoformat(val[:10])
+        except Exception:
+            pass
+    return None
+
+
 def fetch_latest_sales_date(conn, store_id: Optional[str] = None) -> Optional[_dt.date]:
     """Return the most recent invoice date with closed invoices."""
     sql = """
@@ -255,12 +277,7 @@ def fetch_latest_sales_date(conn, store_id: Optional[str] = None) -> Optional[_d
     df = pd.read_sql(sql, conn, params=params)
     if df.empty:
         return None
-    val = df.loc[0, "latest_date"]
-    if pd.isna(val):
-        return None
-    if hasattr(val, "date"):
-        return val.date() if not isinstance(val, _dt.date) else val
-    return val
+    return _normalize_to_date(df.loc[0, "latest_date"])
 
 
 def fetch_latest_timeclock_date(conn, store_id: Optional[str] = None) -> Optional[_dt.date]:
@@ -277,12 +294,7 @@ def fetch_latest_timeclock_date(conn, store_id: Optional[str] = None) -> Optiona
     df = pd.read_sql(sql, conn, params=params)
     if df.empty:
         return None
-    val = df.loc[0, "latest_date"]
-    if pd.isna(val):
-        return None
-    if hasattr(val, "date"):
-        return val.date() if not isinstance(val, _dt.date) else val
-    return val
+    return _normalize_to_date(df.loc[0, "latest_date"])
 
 
 def resolve_merchant_email(row) -> Optional[str]:
