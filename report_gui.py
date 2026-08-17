@@ -416,8 +416,8 @@ class ReportGenerateWorker(QThread):
         self.user = user
         self.pwd = pwd
         self.store_id = store_id
-        self.start = start_date
-        self.end = end_date
+        self.start_date = start_date
+        self.end_date = end_date
         self.active_sections = active_sections
         self.attach_xlsx = attach_xlsx
         self.attach_csv = attach_csv
@@ -425,7 +425,7 @@ class ReportGenerateWorker(QThread):
     def run(self):
         try:
             self.progress.emit("Connecting to SQL Server...")
-            self.log_msg.emit(f"Starting report generation for period: {self.start} -> {self.end}")
+            self.log_msg.emit(f"Starting report generation for period: {self.start_date} -> {self.end_date}")
             
             with report_db.open_connection(self.server, self.database, self.auth, self.user, self.pwd) as conn:
                 self.progress.emit("Querying store setup...")
@@ -452,21 +452,21 @@ class ReportGenerateWorker(QThread):
                     bundle = report_render.ReportBundle(
                         store_id=st_id,
                         merchant=mdict,
-                        start=self.start,
-                        end=self.end,
-                        kpis=report_db.fetch_invoice_kpis(conn, st_id, self.start, self.end),
-                        by_department=report_db.fetch_sales_by_department(conn, st_id, self.start, self.end),
-                        by_fixed_tax=report_db.fetch_sales_by_fixed_tax(conn, st_id, self.start, self.end),
-                        top_items=report_db.fetch_top_items(conn, st_id, self.start, self.end),
-                        by_hour=report_db.fetch_sales_by_hour(conn, st_id, self.start, self.end),
-                        by_payment=report_db.fetch_payment_breakdown(conn, st_id, self.start, self.end),
-                        transactions=report_db.fetch_itemized_transactions(conn, st_id, self.start, self.end),
-                        employees=report_db.fetch_employee_records(conn, st_id, self.start, self.end),
-                        audit_events=report_db.fetch_audit_events(conn, st_id, self.start, self.end),
+                        start=self.start_date,
+                        end=self.end_date,
+                        kpis=report_db.fetch_invoice_kpis(conn, st_id, self.start_date, self.end_date),
+                        by_department=report_db.fetch_sales_by_department(conn, st_id, self.start_date, self.end_date),
+                        by_fixed_tax=report_db.fetch_sales_by_fixed_tax(conn, st_id, self.start_date, self.end_date),
+                        top_items=report_db.fetch_top_items(conn, st_id, self.start_date, self.end_date),
+                        by_hour=report_db.fetch_sales_by_hour(conn, st_id, self.start_date, self.end_date),
+                        by_payment=report_db.fetch_payment_breakdown(conn, st_id, self.start_date, self.end_date),
+                        transactions=report_db.fetch_itemized_transactions(conn, st_id, self.start_date, self.end_date),
+                        employees=report_db.fetch_employee_records(conn, st_id, self.start_date, self.end_date),
+                        audit_events=report_db.fetch_audit_events(conn, st_id, self.start_date, self.end_date),
                     )
                     bundles.append(bundle)
 
-                    date_folder = f"{self.start.isoformat()}" if self.start == self.end else f"{self.start.isoformat()}_to_{self.end.isoformat()}"
+                    date_folder = f"{self.start_date.isoformat()}" if self.start_date == self.end_date else f"{self.start_date.isoformat()}_to_{self.end_date.isoformat()}"
                     out_dir = OUTPUT_ROOT / date_folder / st_id
                     out_dir.mkdir(parents=True, exist_ok=True)
                     base_name = f"daily_sales_{st_id}_{date_folder}"
