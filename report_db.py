@@ -774,33 +774,8 @@ def fetch_audit_events(conn, store_id: str,
             CAST(NULL AS nvarchar(30)) AS Item_Name,
             CAST(NULL AS decimal(25,8)) AS Quantity,
             CAST(NULL AS decimal(25,8)) AS Amount,
-            TRY_CONVERT(
-                decimal(25,8),
-                CASE
-                    WHEN CHARINDEX('Old Price:', x.Reason_Code) > 0
-                         AND CHARINDEX(', New Price:', x.Reason_Code) >
-                             CHARINDEX('Old Price:', x.Reason_Code)
-                    THEN SUBSTRING(
-                        x.Reason_Code,
-                        CHARINDEX('Old Price:', x.Reason_Code) + 10,
-                        CHARINDEX(', New Price:', x.Reason_Code)
-                            - (CHARINDEX('Old Price:', x.Reason_Code) + 10)
-                    )
-                    ELSE NULL
-                END
-            ) AS Old_Price,
-            TRY_CONVERT(
-                decimal(25,8),
-                CASE
-                    WHEN CHARINDEX('New Price:', x.Reason_Code) > 0
-                    THEN SUBSTRING(
-                        x.Reason_Code,
-                        CHARINDEX('New Price:', x.Reason_Code) + 10,
-                        50
-                    )
-                    ELSE NULL
-                END
-            ) AS New_Price,
+            CAST(NULL AS decimal(25,8)) AS Old_Price,
+            CAST(NULL AS decimal(25,8)) AS New_Price,
             x.Reason_Code AS Details
         FROM dbo.Exceptions AS x
         LEFT JOIN emp AS emp_cashier
@@ -889,4 +864,22 @@ def fetch_audit_events(conn, store_id: str,
         store_id, s, e,  # price_itemized
         store_id, s, e,  # voids_invoice_fallback
     ]
-    return pd.read_sql(sql, conn, params=params)
+    df = pd.read_sql(sql, conn, params=params)
+    if not df.empty and "Details" in df.columns:
+        import re
+        for idx, r in df.iterrows():
+            if r.get("Action") == "Price Change" and pd.isna(r.get("Old_Price")):
+                det = str(r.get("Details") or "")
+                m_old = re.search(r"Old Price:\s*([0-9\.]+)", det)
+                m_new = re.search(r"New Price:\s*([0-9\.]+)", det)
+                if m_old:
+                    try:
+                        df.at[idx, "Old_Price"] = float(m_old.group(1))
+                    except Exception:
+                        pass
+                if m_new:
+                    try:
+                        df.at[idx, "New_Price"] = float(m_new.group(1))
+                    except Exception:
+                        pass
+    return df
