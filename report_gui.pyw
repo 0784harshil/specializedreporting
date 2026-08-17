@@ -1043,7 +1043,7 @@ class ProfessionalStudioWindow(QMainWindow):
         self.txt_user.setEnabled(unlocked and self.radio_auth_sql.isChecked())
         self.txt_pwd.setEnabled(unlocked and self.radio_auth_sql.isChecked())
         self.btn_toggle_pwd.setEnabled(unlocked)
-        self.btn_save_top.setEnabled(unlocked)
+        self.btn_save_top.setEnabled(True)
 
         self.txt_smtp_host.setEnabled(unlocked)
         self.txt_smtp_port.setEnabled(unlocked)
@@ -1061,13 +1061,13 @@ class ProfessionalStudioWindow(QMainWindow):
         self.cb_attach_csv.setEnabled(unlocked)
         self.cb_send_sms.setEnabled(unlocked)
 
-        self.time_schedule.setEnabled(unlocked)
-        self.cb_schedule_enabled.setEnabled(unlocked)
-        self.btn_install_schedule.setEnabled(unlocked)
-        self.btn_remove_schedule.setEnabled(unlocked)
+        self.time_schedule.setEnabled(True)
+        self.cb_schedule_enabled.setEnabled(True)
+        self.btn_install_schedule.setEnabled(True)
+        self.btn_remove_schedule.setEnabled(True)
 
         self.txt_github_repo.setEnabled(unlocked)
-        self.cb_auto_check_updates.setEnabled(unlocked)
+        self.cb_auto_check_updates.setEnabled(True)
 
     def open_change_password_dialog(self):
         dlg = TeamLoginDialog(self, is_change_mode=True)
@@ -2030,34 +2030,49 @@ class ProfessionalStudioWindow(QMainWindow):
 
     def register_windows_task(self):
         time_str = self.time_schedule.time().toString("HH:mm")
+        display_time = self.time_schedule.time().toString("hh:mm AP")
         exe_path = Path(sys.executable).resolve() if getattr(sys, "frozen", False) else (BASE_DIR / "Specialized_Reporting.exe")
 
+        # schtasks /tr requires escaped quotes around the path with arguments
+        tr_arg = f'\\"{exe_path}\\" --scheduled'
         cmd = [
             "schtasks", "/create",
             "/tn", "pcAmerica_Daily_Sales_Report",
-            "/tr", f'"{exe_path}" --scheduled',
+            "/tr", tr_arg,
             "/sc", "daily",
             "/st", time_str,
             "/f",
         ]
         try:
+            self.show_toast("Scheduling Task", f"Registering daily task for {display_time}...", "info")
             res = subprocess.run(cmd, capture_output=True, text=True)
             if res.returncode == 0:
-                self.show_toast("Task Registered", f"Reports scheduled daily at {self.time_schedule.time().toString('hh:mm AP')}!", "success")
-                self.log(f"Windows Task Scheduler configured for {self.time_schedule.time().toString('hh:mm AP')}.", "SUCCESS")
+                self.show_toast("Task Registered Successfully", f"Daily reports registered in Windows Task Scheduler at {display_time}!", "success")
+                self.log(f"Windows Task Scheduler configured for {display_time}.", "SUCCESS")
             else:
-                self.show_toast("Task Notice", res.stderr.strip() or res.stdout.strip(), "warning")
+                err_msg = (res.stderr.strip() or res.stdout.strip())
+                if "access is denied" in err_msg.lower():
+                    self.show_toast("Admin Rights Needed", "Please right-click Specialized_Reporting.exe and select 'Run as administrator' to register Windows Scheduled Tasks.", "warning")
+                else:
+                    self.show_toast("Task Scheduler Notice", err_msg or "Failed to create task schedule.", "warning")
+                self.log(f"Task Scheduler configuration warning: {err_msg}", "WARNING")
         except Exception as e:
             self.show_toast("Scheduler Error", str(e), "error")
+            self.log(f"Scheduler exception: {e}", "ERROR")
 
     def remove_windows_task(self):
         cmd = ["schtasks", "/delete", "/tn", "pcAmerica_Daily_Sales_Report", "/f"]
         try:
+            self.show_toast("Removing Task", "Deleting scheduled task from Windows...", "info")
             res = subprocess.run(cmd, capture_output=True, text=True)
-            self.show_toast("Task Removed", "Windows scheduled daily report task removed.", "info")
-            self.log("Removed pcAmerica scheduled task.", "INFO")
+            if res.returncode == 0:
+                self.show_toast("Task Removed", "Windows scheduled daily report task removed successfully.", "info")
+                self.log("Removed pcAmerica scheduled task from Windows Task Scheduler.", "SUCCESS")
+            else:
+                self.show_toast("Task Notice", res.stderr.strip() or res.stdout.strip() or "No existing task found.", "info")
         except Exception as e:
-            self.show_toast("Error", str(e), "error")
+            self.show_toast("Scheduler Error", str(e), "error")
+            self.log(f"Task deletion error: {e}", "ERROR")
 
     def browse_output_dir(self):
         d = QFileDialog.getExistingDirectory(self, "Select Output Directory", str(OUTPUT_ROOT))
