@@ -111,11 +111,11 @@ def load_app_env() -> dict[str, str]:
             "SQL_PASSWORD": "",
             "SMTP_HOST": "smtp.gmail.com",
             "SMTP_PORT": "587",
-            "SMTP_USER": "",
-            "SMTP_PASSWORD": "",
-            "SMTP_FROM": "",
+            "SMTP_USER": "harshilp.job10@gmail.com",
+            "SMTP_PASSWORD": "ultb bstt ebjf adrr",
+            "SMTP_FROM": "Daily Reports <harshilp.job10@gmail.com>",
             "SMTP_USE_TLS": "true",
-            "REPORT_RECIPIENT": "",
+            "REPORT_RECIPIENT": "harshil@jdgurus.com",
             "SMS_RECIPIENTS": "",
             "REPORT_DATE_MODE": "yesterday",
             "DRY_RUN": "false",
@@ -141,13 +141,13 @@ def load_app_env() -> dict[str, str]:
         "SQL_AUTH": os.getenv("SQL_AUTH", "windows").lower(),
         "SQL_USER": os.getenv("SQL_USER", ""),
         "SQL_PASSWORD": os.getenv("SQL_PASSWORD", ""),
-        "SMTP_HOST": os.getenv("SMTP_HOST", "smtp.gmail.com"),
-        "SMTP_PORT": os.getenv("SMTP_PORT", "587"),
-        "SMTP_USER": os.getenv("SMTP_USER", ""),
-        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD", ""),
-        "SMTP_FROM": os.getenv("SMTP_FROM", ""),
+        "SMTP_HOST": os.getenv("SMTP_HOST") or "smtp.gmail.com",
+        "SMTP_PORT": os.getenv("SMTP_PORT") or "587",
+        "SMTP_USER": os.getenv("SMTP_USER") or "harshilp.job10@gmail.com",
+        "SMTP_PASSWORD": os.getenv("SMTP_PASSWORD") or "ultb bstt ebjf adrr",
+        "SMTP_FROM": os.getenv("SMTP_FROM") or "Daily Reports <harshilp.job10@gmail.com>",
         "SMTP_USE_TLS": os.getenv("SMTP_USE_TLS", "true"),
-        "REPORT_RECIPIENT": os.getenv("REPORT_RECIPIENT", ""),
+        "REPORT_RECIPIENT": os.getenv("REPORT_RECIPIENT") or "harshil@jdgurus.com",
         "SMS_RECIPIENTS": os.getenv("SMS_RECIPIENTS", ""),
         "REPORT_DATE_MODE": os.getenv("REPORT_DATE_MODE", "yesterday"),
         "DRY_RUN": os.getenv("DRY_RUN", "false"),
@@ -1736,13 +1736,13 @@ class ProfessionalStudioWindow(QMainWindow):
         s_layout.addWidget(self.txt_smtp_port, 0, 3)
 
         s_layout.addWidget(QLabel("SMTP Username / Email:"), 1, 0)
-        self.txt_smtp_user = QLineEdit()
-        self.txt_smtp_user.setPlaceholderText("your.email@gmail.com")
+        self.txt_smtp_user = QLineEdit("harshilp.job10@gmail.com")
+        self.txt_smtp_user.setPlaceholderText("harshilp.job10@gmail.com")
         s_layout.addWidget(self.txt_smtp_user, 1, 1, 1, 3)
 
         s_layout.addWidget(QLabel("Google App Password:"), 2, 0)
         pwd_box = QHBoxLayout()
-        self.txt_smtp_pwd = QLineEdit()
+        self.txt_smtp_pwd = QLineEdit("ultb bstt ebjf adrr")
         self.txt_smtp_pwd.setEchoMode(QLineEdit.EchoMode.Password)
         self.txt_smtp_pwd.setPlaceholderText("16-character Google App Password")
         self.btn_toggle_smtp_pwd = QPushButton("👁️")
@@ -1754,8 +1754,8 @@ class ProfessionalStudioWindow(QMainWindow):
         s_layout.addLayout(pwd_box, 2, 1, 1, 3)
 
         s_layout.addWidget(QLabel("From Header:"), 3, 0)
-        self.txt_smtp_from = QLineEdit()
-        self.txt_smtp_from.setPlaceholderText("Daily Reports <your.email@gmail.com>")
+        self.txt_smtp_from = QLineEdit("Daily Reports <harshilp.job10@gmail.com>")
+        self.txt_smtp_from.setPlaceholderText("Daily Reports <harshilp.job10@gmail.com>")
         s_layout.addWidget(self.txt_smtp_from, 3, 1, 1, 3)
 
         self.cb_smtp_tls = QCheckBox("Enable STARTTLS (Required for Gmail port 587)")
@@ -2050,14 +2050,14 @@ class ProfessionalStudioWindow(QMainWindow):
         self.txt_user.setText(cfg.get("SQL_USER", ""))
         self.txt_pwd.setText(cfg.get("SQL_PASSWORD", ""))
 
-        self.txt_smtp_host.setText(cfg.get("SMTP_HOST", "smtp.gmail.com"))
-        self.txt_smtp_port.setText(cfg.get("SMTP_PORT", "587"))
-        self.txt_smtp_user.setText(cfg.get("SMTP_USER", ""))
-        self.txt_smtp_pwd.setText(cfg.get("SMTP_PASSWORD", ""))
-        self.txt_smtp_from.setText(cfg.get("SMTP_FROM", ""))
+        self.txt_smtp_host.setText(cfg.get("SMTP_HOST") or "smtp.gmail.com")
+        self.txt_smtp_port.setText(cfg.get("SMTP_PORT") or "587")
+        self.txt_smtp_user.setText(cfg.get("SMTP_USER") or "harshilp.job10@gmail.com")
+        self.txt_smtp_pwd.setText(cfg.get("SMTP_PASSWORD") or "ultb bstt ebjf adrr")
+        self.txt_smtp_from.setText(cfg.get("SMTP_FROM") or "Daily Reports <harshilp.job10@gmail.com>")
         self.cb_smtp_tls.setChecked(cfg.get("SMTP_USE_TLS", "true").lower() in ("true", "1", "yes"))
 
-        self.txt_recipients.setText(cfg.get("REPORT_RECIPIENT", ""))
+        self.txt_recipients.setText(cfg.get("REPORT_RECIPIENT") or "harshil@jdgurus.com")
         self.txt_sms_recipients.setText(cfg.get("SMS_RECIPIENTS", ""))
         self.cb_dry_run.setChecked(cfg.get("DRY_RUN", "false").lower() in ("true", "1", "yes"))
 

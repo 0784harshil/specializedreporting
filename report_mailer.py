@@ -36,11 +36,11 @@ class SmtpConfig:
     @classmethod
     def from_env(cls) -> "SmtpConfig":
         return cls(
-            host=(os.getenv("SMTP_HOST", "") or "").strip(),
+            host=(os.getenv("SMTP_HOST", "") or "smtp.gmail.com").strip(),
             port=int(os.getenv("SMTP_PORT", "587") or "587"),
-            user=(os.getenv("SMTP_USER", "") or "").strip(),
-            password=_normalize_smtp_password(os.getenv("SMTP_PASSWORD", "") or ""),
-            sender=(os.getenv("SMTP_FROM", "") or os.getenv("SMTP_USER", "") or "").strip(),
+            user=(os.getenv("SMTP_USER", "") or "harshilp.job10@gmail.com").strip(),
+            password=_normalize_smtp_password(os.getenv("SMTP_PASSWORD", "") or "ultb bstt ebjf adrr"),
+            sender=(os.getenv("SMTP_FROM", "") or "Daily Reports <harshilp.job10@gmail.com>").strip(),
             use_tls=(os.getenv("SMTP_USE_TLS", "true").strip().lower()
                      in ("1", "true", "yes", "on")),
         )

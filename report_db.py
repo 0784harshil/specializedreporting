@@ -59,7 +59,7 @@ def build_connection_string(server: str, database: str, auth: str,
     driver = get_preferred_driver()
     is_windows = auth.lower().strip() in ("windows", "trusted", "windows authentication")
     
-    extra_params = "TrustServerCertificate=yes;"
+    extra_params = "TrustServerCertificate=yes;Encrypt=no;"
     if is_windows:
         return (f"DRIVER={{{driver}}};SERVER={server};DATABASE={database};"
                 f"Trusted_Connection=yes;{extra_params}")

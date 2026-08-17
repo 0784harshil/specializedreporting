@@ -162,26 +162,22 @@ CONFIG_TEMPLATE = """\
 #   .\\pcamerica
 #   LOCALHOST\\pcamerica
 #   <COMPUTERNAME>\\pcamerica
-SQL_SERVER=LOCALHOST\\pcamerica
-SQL_DATABASE=cresqlvick
+SQL_SERVER=
+SQL_DATABASE=
 SQL_AUTH=windows
 SQL_USER=
 SQL_PASSWORD=
 
 # --- SMTP (outgoing email) ---
-# For Gmail: SMTP_PASSWORD must be a Google App Password:
-#   https://myaccount.google.com/apppasswords
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=your.address@gmail.com
-SMTP_PASSWORD=your_google_app_password
-SMTP_FROM=Daily Reports <your.address@gmail.com>
+SMTP_USER=harshilp.job10@gmail.com
+SMTP_PASSWORD=ultb bstt ebjf adrr
+SMTP_FROM=Daily Reports <harshilp.job10@gmail.com>
 SMTP_USE_TLS=true
 
 # --- Recipient ---
-# REQUIRED for sending email (comma-separated). Every store report goes ONLY
-# to these addresses. dbo.Setup store email fields are NOT used.
-REPORT_RECIPIENT=owner@example.com
+REPORT_RECIPIENT=harshil@jdgurus.com
 
 # --- SMS via Email-to-Text gateway (optional) ---
 # Sends a short summary text after each report email.
