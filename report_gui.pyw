@@ -1783,10 +1783,29 @@ class ProfessionalStudioWindow(QMainWindow):
         r_layout.addWidget(self.cb_dry_run, 2, 1)
 
         act_box = QHBoxLayout()
-        self.btn_test_email = QPushButton("✉️ Send Test Email")
-        self.btn_test_email.setProperty("class", "btnAccent")
+        self.btn_test_email = QPushButton("✉️ Send Connection Test Email")
+        self.btn_test_email.setProperty("class", "btnSecondary")
         self.btn_test_email.clicked.connect(self.send_test_email)
         act_box.addWidget(self.btn_test_email)
+
+        self.btn_quick_dispatch = QPushButton("🚀 Generate and Send Full Sales Report Now")
+        self.btn_quick_dispatch.setStyleSheet("""
+            QPushButton {
+                background-color: #059669;
+                color: #ffffff !important;
+                font-weight: 700;
+                font-size: 13px;
+                padding: 8px 18px;
+                border-radius: 6px;
+                border: none;
+            }
+            QPushButton:hover {
+                background-color: #047857;
+            }
+        """)
+        self.btn_quick_dispatch.clicked.connect(self.generate_and_dispatch_full_report)
+        act_box.addWidget(self.btn_quick_dispatch)
+
         act_box.addStretch()
         r_layout.addLayout(act_box, 3, 1)
 
@@ -2407,6 +2426,18 @@ class ProfessionalStudioWindow(QMainWindow):
 
         self.show_toast("Report Generated", f"Generated {len(bundles)} report(s). Total: ${float(metrics.get('gross_sales', 0)):,.2f}", "success")
         self.log("Report rendering complete.", "SUCCESS")
+
+        if getattr(self, "auto_dispatch_after_generation", False):
+            self.auto_dispatch_after_generation = False
+            QTimer.singleShot(600, self.send_email_now)
+
+    def generate_and_dispatch_full_report(self):
+        self.nav_stack.setCurrentIndex(0)
+        for b in self.nav_buttons:
+            b.setChecked(b.property("tabIndex") == 0)
+        self.show_toast("Generating Report", "Extracting store sales data to send report...", "info")
+        self.auto_dispatch_after_generation = True
+        self.generate_and_preview_report()
 
     def on_report_error(self, err: str):
         self.progress_bar.setVisible(False)
