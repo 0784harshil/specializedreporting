@@ -1098,17 +1098,18 @@ class ProfessionalStudioWindow(QMainWindow):
 
         self.nav_list = QListWidget()
         self.nav_list.setObjectName("navSidebar")
+        self.nav_list.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         
         nav_items = [
-            ("🚀  Report Generator and Preview", 0),
-            ("🧩  Module and Section Filter", 1),
-            ("🔌  SQL Server and Discovery", 2),
-            ("📧  Email and SMTP Dispatch", 3),
-            ("⚙️  Settings and Scheduling", 4),
+            ("🚀  Report Generator", 0),
+            ("🧩  Module Filter", 1),
+            ("🔌  SQL Server Discovery", 2),
+            ("📧  Email Dispatch", 3),
+            ("⚙️  Settings & Schedule", 4),
         ]
         for label, idx in nav_items:
             item = QListWidgetItem(label)
-            item.setSizeHint(QSize(220, 44))
+            item.setSizeHint(QSize(200, 42))
             self.nav_list.addItem(item)
 
         self.nav_list.currentRowChanged.connect(self.switch_view)
@@ -1311,14 +1312,15 @@ class ProfessionalStudioWindow(QMainWindow):
         ctrl_layout.addStretch()
 
         # High-Contrast Vibrant Buttons
-        self.btn_generate_preview = QPushButton("🚀  Generate Report")
+        self.btn_generate_preview = QPushButton("🚀 Generate Report")
+        self.btn_generate_preview.setMinimumWidth(140)
         self.btn_generate_preview.setStyleSheet("""
             QPushButton {
                 background-color: #059669;
                 color: #ffffff !important;
                 font-weight: 700;
-                font-size: 13px;
-                padding: 8px 18px;
+                font-size: 12px;
+                padding: 7px 14px;
                 border-radius: 6px;
                 border: none;
             }
@@ -1329,14 +1331,15 @@ class ProfessionalStudioWindow(QMainWindow):
         self.btn_generate_preview.clicked.connect(self.generate_and_preview_report)
         ctrl_layout.addWidget(self.btn_generate_preview)
 
-        self.btn_send_email_now = QPushButton("✉️  Dispatch Email")
+        self.btn_send_email_now = QPushButton("✉️ Dispatch Email")
+        self.btn_send_email_now.setMinimumWidth(130)
         self.btn_send_email_now.setStyleSheet("""
             QPushButton {
                 background-color: #4f46e5;
                 color: #ffffff !important;
                 font-weight: 700;
-                font-size: 13px;
-                padding: 8px 18px;
+                font-size: 12px;
+                padding: 7px 14px;
                 border-radius: 6px;
                 border: none;
             }
@@ -2366,6 +2369,7 @@ class ProfessionalStudioWindow(QMainWindow):
         self.progress_bar.setVisible(True)
         self.progress_bar.setRange(0, 0)
         self.btn_generate_preview.setEnabled(False)
+        self.show_toast("Generating Report", f"Querying sales data ({start_d.strftime('%m/%d/%Y')} to {end_d.strftime('%m/%d/%Y')})...", "info")
 
         self.report_worker = ReportGenerateWorker(
             server, database, auth, user, pwd,
